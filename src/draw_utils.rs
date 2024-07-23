@@ -1,10 +1,10 @@
 use std::ffi::CString;
+
 use windows::core::PCSTR;
 use windows::Win32::Foundation::{COLORREF, GetLastError, RECT};
 use windows::Win32::Graphics::Gdi::{CreateFontA, CreateSolidBrush, DeleteObject, Ellipse, FillRect, HBRUSH, HDC, Rectangle, SelectObject, SetBkMode, SetTextColor, TextOutA, TRANSPARENT};
 
 use crate::entity::Entity;
-
 
 pub unsafe fn draw_scaling_bar(
     hdc: HDC,

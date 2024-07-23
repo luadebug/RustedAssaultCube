@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+
 use crate::distance::distance_3d;
 use crate::vec_structures::Vec3;
 

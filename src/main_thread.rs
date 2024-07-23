@@ -1,7 +1,7 @@
 use std::ffi::{c_void, CString};
 
-use hudhook::hooks::opengl3::ImguiOpenGl3Hooks;
 use hudhook::{eject, Hudhook};
+use hudhook::hooks::opengl3::ImguiOpenGl3Hooks;
 use hudhook::mh::{MH_Initialize, MH_STATUS};
 use hudhook::windows::Win32::Foundation::HINSTANCE;
 use windows::core::PCSTR;

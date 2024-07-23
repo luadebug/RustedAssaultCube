@@ -115,6 +115,12 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
     //println!("[esp] Set window style to Setwinl");
     SetWindowLongA(GAME_WINDOW_HANDLE, GWL_EXSTYLE, ex_style | WS_EX_TRANSPARENT.0 as i32);
 
+
+
+
+/*    OG_WND_PROC = SetWindowLongPtrA(GAME_WINDOW_HANDLE,
+                                    WINDOW_LONG_PTR_INDEX(GWL_WNDPROC.0),
+                                    (hook_wnd_process as *c_void) as i32);*/
     // Get device context and create a compatible DC
     println!("[esp] Get device context and create a compatible DC");
     let hdc = GetDC(GAME_WINDOW_HANDLE);
