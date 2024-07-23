@@ -53,7 +53,7 @@ pub mod game_vars
     pub static mut LOCAL_PLAYER: Entity = Entity { entity_starts_at_addr: 0 };
     pub static mut NUM_PLAYERS_IN_MATCH: usize = 0;
     pub static mut ENTITY_LIST_PTR: u32 = 0;
-    pub static mut FOV: f32 = 100.0;
+    pub static mut FOV: f32 = 300.0;
     pub static mut SMOOTH: f32 = 100.0;
 }
 pub mod hotkeys

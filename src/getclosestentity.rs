@@ -12,7 +12,7 @@ use crate::vec_structures::Vec2;
 use crate::world_to_screen::world_to_screen;
 
 pub unsafe fn get_closest_entity() -> Entity {
-    let mut Target = Entity::new();
+    let mut target = Entity::new();
     AC_CLIENT_EXE_HMODULE = {
         let ac_client_exe_cstring = CString::new("ac_client.exe").unwrap();
         GetModuleHandleA(PCSTR(ac_client_exe_cstring.as_ptr() as *const u8))
@@ -55,15 +55,15 @@ pub unsafe fn get_closest_entity() -> Entity {
         if !world_to_screen(enemy.head_position(), &mut screen, *VIEW_MATRIX, GAME_WINDOW_DIMENSIONS.width, GAME_WINDOW_DIMENSIONS.height) {
             continue;
         }
-        let mut DistanceToFOV:f32 = distance_2d(Vec2
+        let distance_to_fov:f32 = distance_2d(Vec2
                                                 { x: GAME_WINDOW_DIMENSIONS.width as f32 / 2.0,
                                                   y: GAME_WINDOW_DIMENSIONS.height as f32 / 2.0
                                                 }, screen);
-        if (DistanceToFOV < FOV)
+        if distance_to_fov < FOV
         {
-            Target = enemy;
+            target = enemy;
         }
     }
 
-    Target
+    target
 }

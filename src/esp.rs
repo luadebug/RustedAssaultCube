@@ -1,4 +1,4 @@
-use std::ffi::{c_void, CString};
+use std::ffi::CString;
 use std::ptr::null;
 use std::result::Result::Ok;
 use std::thread;
@@ -10,23 +10,20 @@ use windows::Win32::Graphics::Gdi::{CreateCompatibleBitmap, CreateCompatibleDC, 
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 use windows::Win32::UI::WindowsAndMessaging::{FindWindowA, GetWindowLongA, GWL_EXSTYLE, SetWindowLongA, WS_EX_TRANSPARENT};
 
-use crate::{distance, draw_utils};
 use crate::aimbot::aimbot;
-use crate::draw_utils::{draw_border_box, draw_text};
+use crate::distance;
+use crate::draw_utils::{draw_border_box, draw_scaling_bar, draw_text};
 use crate::entity::Entity;
 use crate::get_window_dimensions::get_window_dimensions;
-use crate::memorypatch::MemoryPatch;
 use crate::misc::{init_mem_patches, player_fields_monitor};
-use crate::offsets::offsets::{AMMO_CARBINE, AMMO_IN_MAGAZINE_CARBINE, AMMO_IN_MAGAZINE_PISTOL, AMMO_IN_MAGAZINE_RIFLE, AMMO_IN_MAGAZINE_SHOTGUN, AMMO_IN_MAGAZINE_SNIPER, AMMO_IN_MAGAZINE_SUBMACHINEGUN, AMMO_PISTOL, AMMO_RIFLE, AMMO_SHOTGUN, AMMO_SNIPER, AMMO_SUBMACHINEGUN, CARBINE_COOLDOWN, ENTITY_LIST_OFFSET, GRENADES_COUNT, HEALTH_OFFSET_FROM_LOCAL_PLAYER, KNIFE_COOLDOWN, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, PISTOL_COOLDOWN, RIFLE_COOLDOWN, SHOTGUN_COOLDOWN, SNIPER_COOLDOWN, SUBMACHINEGUN_COOLDOWN, VIEW_MATRIX_ADDR};
-use crate::utils::find_pattern;
+use crate::offsets::offsets::{ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, VIEW_MATRIX_ADDR};
 use crate::vars::game_vars::{ENTITY_LIST_PTR, VIEW_MATRIX};
 use crate::vars::game_vars::LOCAL_PLAYER;
 use crate::vars::game_vars::NUM_PLAYERS_IN_MATCH;
 use crate::vars::handles::AC_CLIENT_EXE_HMODULE;
 use crate::vars::handles::GAME_WINDOW_DIMENSIONS;
 use crate::vars::handles::GAME_WINDOW_HANDLE;
-use crate::vars::mem_patches::{NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH};
-use crate::vars::ui_vars::{IS_ESP, IS_GRENADES_INFINITE, IS_INFINITE_AMMO, IS_INVULNERABLE, IS_NO_RELOAD};
+use crate::vars::ui_vars::IS_ESP;
 use crate::vec_structures::Vec2;
 use crate::world_to_screen::world_to_screen;
 
@@ -195,27 +192,41 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
             if !entity.is_alive() {
                 continue;
             }
-            let mut screen = Vec2 { x: 0.0, y: 0.0 };
+            let mut feet_screen_pos = Vec2 { x: 0.0, y: 0.0 };
             //if !world_to_screen::world_to_screen(entity.position(), &mut screen, *view_matrix, GAME_WINDOW_DIMENSIONS.width, GAME_WINDOW_DIMENSIONS.height) {
-            if !world_to_screen(entity.position(), &mut screen, *VIEW_MATRIX, GAME_WINDOW_DIMENSIONS.width, GAME_WINDOW_DIMENSIONS.height) {
+            if !world_to_screen(entity.position(), &mut feet_screen_pos, *VIEW_MATRIX, GAME_WINDOW_DIMENSIONS.width, GAME_WINDOW_DIMENSIONS.height) {
                 continue;
             }
-
+            let mut head_screen_pos = Vec2 {x: 0.0, y: 0.0};
+            if !world_to_screen(entity.head_position(), &mut head_screen_pos, *VIEW_MATRIX, GAME_WINDOW_DIMENSIONS.width, GAME_WINDOW_DIMENSIONS.height) {
+                continue;
+            }
+/*            let mut topLeft: Vec2 = Vec2::new(head_screen_pos.x - width as f32, head_screen_pos.y);
+            let mut topRight: Vec2 = Vec2::new(head_screen_pos.x + width as f32, head_screen_pos.y);
+            let mut bottomRight: Vec2 = Vec2::new(feet_screen_pos.x + width as f32, feet_screen_pos.y);
+            let mut bottomLeft: Vec2 = Vec2::new(feet_screen_pos.x - width as f32, feet_screen_pos.y);*/
+            // Draw box
             let distance = distance::distance_3d(LOCAL_PLAYER.position(), entity.position());
             let box_width = (GAME_WINDOW_DIMENSIONS.width as f32 / distance) as i32;
             let box_height = (GAME_WINDOW_DIMENSIONS.height as f32 / distance * 3.5) as i32;
-            let box_left = (screen.x - box_width as f32 / 2.0) as i32;
-            let box_top = (screen.y - box_height as f32) as i32;
+            let box_left = (feet_screen_pos.x - box_width as f32 / 2.0) as i32;
+            let box_top = (feet_screen_pos.y - box_height as f32) as i32;
             let box_brush_color = if LOCAL_PLAYER.team() == entity.team() {
                 green_brush
             } else {
                 red_brush
             };
             aimbot(mem_dc);
-            draw_text(mem_dc, screen.x as i32, screen.y as i32, &entity);
+            draw_text(mem_dc, feet_screen_pos.x as i32, feet_screen_pos.y as i32, &entity);
             draw_border_box(mem_dc, box_brush_color,
-                                        box_left, box_top, box_width, box_height, 5);
-
+                            box_left, box_top,
+                            box_width, box_height, 5);
+            draw_scaling_bar(mem_dc,
+                             head_screen_pos.x - 55.0, head_screen_pos.y,
+                             feet_screen_pos.x - 15.0, feet_screen_pos.y,
+                             box_width as f32 * 2.5,
+                             entity.health() as f32, 100.0,
+                             COLORREF(0x0000FF00));
             // Update the invalidated area to encompass all drawn entities
             invalidated_area.left = invalidated_area.left.min(box_left);
             invalidated_area.top = invalidated_area.top.min(box_top);

@@ -1,26 +1,18 @@
 use std::ffi::{c_void, CString};
-use std::fs::File;
 use std::io::Read;
 use std::mem::size_of;
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::ptr;
 use std::ptr::null_mut;
-use std::sync::Mutex;
 
-use tracing_subscriber::{EnvFilter, fmt, Layer};
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use windows::core::PCSTR;
 use windows::Win32::Foundation::GetLastError;
 use windows::Win32::System::Console::{AllocConsole, FreeConsole};
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 use windows::Win32::System::Memory::{PAGE_PROTECTION_FLAGS, PAGE_READWRITE, VirtualProtect};
-use windows::Win32::System::Threading::{CREATE_NO_WINDOW, GetCurrentProcess};
 use windows::Win32::System::ProcessStatus::{GetModuleInformation, MODULEINFO};
-
-
-
+use windows::Win32::System::Threading::{CREATE_NO_WINDOW, GetCurrentProcess};
 
 pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
     let module_name = CString::new(module).unwrap();
