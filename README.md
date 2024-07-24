@@ -1,2 +1,2 @@
-ESP and utils for Assault Cube
-# TODO fix aimbot and mouse input
+Aimbot, ESP and utils for Assault Cube
+# TODO triggerbot
