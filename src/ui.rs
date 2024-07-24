@@ -3,13 +3,13 @@ use std::ptr::addr_of_mut;
 
 use hudhook::{imgui, MessageFilter, RenderContext};
 use hudhook::imgui::{Context, internal::RawCast, Io, sys::{ImFontAtlas_AddFontFromFileTTF, ImFontAtlas_GetGlyphRangesChineseFull}};
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_DELETE, VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_INSERT};
-
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_DELETE, VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_INSERT};
+use crate::aimbot::aimbot;
 use crate::esp::esp_entrypoint;
 use crate::style::set_dark_style;
 use crate::vars::game_vars::{FOV, SMOOTH};
 use crate::vars::mem_patches::{NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH};
-use crate::vars::ui_vars::{IS_DRAW_FOV, IS_ESP, IS_GRENADES_INFINITE, IS_INFINITE_AMMO, IS_INVULNERABLE, IS_NO_RECOIL, IS_NO_RELOAD, IS_RAPID_FIRE, IS_SHOW_UI, IS_SMOOTH};
+use crate::vars::ui_vars::{IS_AIMBOT, IS_DRAW_FOV, IS_ESP, IS_GRENADES_INFINITE, IS_INFINITE_AMMO, IS_INVULNERABLE, IS_NO_RECOIL, IS_NO_RELOAD, IS_RAPID_FIRE, IS_SHOW_UI, IS_SMOOTH};
 
 pub static mut CANRELATIVEMOUSE:bool = true;
 pub static mut RELATIVEMOUSE:bool = false;
@@ -54,17 +54,23 @@ pub unsafe fn on_frame(ui: &imgui::Ui) {
             RAPID_FIRE_MEMORY_PATCH.unpatch_memory().expect("[ui] Failed to unpatch memory rapid fire");
         }
     }
-    if ui.checkbox("[F7] Aimbot Draw FOV", &mut *addr_of_mut!(IS_DRAW_FOV)) {
-        println!("Set Aimbot Draw FOV Toggle to {}", IS_DRAW_FOV);
+    if ui.checkbox("[F7] Aimbot", &mut *addr_of_mut!(IS_AIMBOT)) {
+        println!("Set Aimbot Toggle to {}", IS_AIMBOT);
     }
-    if ui.slider("FOV", 1.0, 300.0, &mut *addr_of_mut!(FOV)){
-        println!("Set Aimbot FOV to {}", FOV);
-    }
-    if ui.checkbox("[F8] Aimbot Smooth", &mut *addr_of_mut!(IS_SMOOTH)) {
-        println!("Set Aimbot Draw FOV Toggle to {}", IS_SMOOTH);
-    }
-    if ui.slider("Smooth", 1.0, 100.0, &mut *addr_of_mut!(SMOOTH)){
-        println!("Set Aimbot Smooth to {}", SMOOTH);
+    if IS_AIMBOT
+    {
+        if ui.checkbox("[F8] Aimbot Draw FOV", &mut *addr_of_mut!(IS_DRAW_FOV)) {
+            println!("Set Aimbot Draw FOV Toggle to {}", IS_DRAW_FOV);
+        }
+        if ui.slider("FOV", 1.0, 300.0, &mut *addr_of_mut!(FOV)){
+            println!("Set Aimbot FOV to {}", FOV);
+        }
+        if ui.checkbox("[F9] Aimbot Smooth", &mut *addr_of_mut!(IS_SMOOTH)) {
+            println!("Set Aimbot Draw FOV Toggle to {}", IS_SMOOTH);
+        }
+        if ui.slider("Smooth", 1.0, 100.0, &mut *addr_of_mut!(SMOOTH)){
+            println!("Set Aimbot Smooth to {}", SMOOTH);
+        }
     }
 }
 
@@ -121,6 +127,10 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
         _render_context: &'a mut dyn RenderContext,
     ) {
         unsafe {
+            if IS_AIMBOT
+            {
+                aimbot();
+            }
             if GetAsyncKeyState(VK_INSERT.0 as i32) & 1 == 1 {
                 IS_SHOW_UI = !IS_SHOW_UI;
             }
@@ -159,9 +169,13 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
             }
             if GetAsyncKeyState(VK_F7.0 as i32) & 1 == 1
             {
+                IS_AIMBOT = !IS_AIMBOT;
+            }
+            if GetAsyncKeyState(VK_F8.0 as i32) & 1 == 1 && IS_AIMBOT
+            {
                 IS_DRAW_FOV = !IS_DRAW_FOV;
             }
-            if GetAsyncKeyState(VK_F8.0 as i32) & 1 == 1
+            if GetAsyncKeyState(VK_F9.0 as i32) & 1 == 1 && IS_AIMBOT
             {
                 IS_SMOOTH = !IS_SMOOTH;
             }

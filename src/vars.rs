@@ -24,6 +24,7 @@ pub mod ui_vars
     pub static mut IS_RAPID_FIRE: bool = false;
     pub static mut IS_DRAW_FOV: bool = false;
     pub static mut IS_SMOOTH: bool = false;
+    pub static mut IS_AIMBOT: bool = false;
 }
 pub mod handles
 {

@@ -12,18 +12,18 @@ use windows::Win32::UI::WindowsAndMessaging::{FindWindowA, GetWindowLongA, GWL_E
 
 use crate::aimbot::aimbot;
 use crate::distance;
-use crate::draw_utils::{draw_border_box, draw_scaling_bar, draw_text};
+use crate::draw_utils::{draw_border_box, draw_circle, draw_scaling_bar, draw_text};
 use crate::entity::Entity;
 use crate::get_window_dimensions::get_window_dimensions;
 use crate::misc::{init_mem_patches, player_fields_monitor};
 use crate::offsets::offsets::{ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, VIEW_MATRIX_ADDR};
-use crate::vars::game_vars::{ENTITY_LIST_PTR, VIEW_MATRIX};
+use crate::vars::game_vars::{ENTITY_LIST_PTR, FOV, VIEW_MATRIX};
 use crate::vars::game_vars::LOCAL_PLAYER;
 use crate::vars::game_vars::NUM_PLAYERS_IN_MATCH;
 use crate::vars::handles::AC_CLIENT_EXE_HMODULE;
 use crate::vars::handles::GAME_WINDOW_DIMENSIONS;
 use crate::vars::handles::GAME_WINDOW_HANDLE;
-use crate::vars::ui_vars::IS_ESP;
+use crate::vars::ui_vars::{IS_DRAW_FOV, IS_ESP};
 use crate::vec_structures::Vec2;
 use crate::world_to_screen::world_to_screen;
 
@@ -222,7 +222,14 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
             } else {
                 red_brush
             };
-            aimbot(mem_dc);
+            //aimbot(mem_dc);
+            if IS_DRAW_FOV
+            {
+                draw_circle(hdc, (GAME_WINDOW_DIMENSIONS.width as f32 / 2.0,
+                                              GAME_WINDOW_DIMENSIONS.height as f32 / 2.0),
+                                        FOV,
+                                        COLORREF(0x00FFFFFF));
+            }
             draw_text(mem_dc, feet_screen_pos.x as i32, feet_screen_pos.y as i32, &entity);
             draw_border_box(mem_dc, box_brush_color,
                             box_left, box_top,

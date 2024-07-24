@@ -10,17 +10,15 @@ use crate::offsets::offsets::{ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF
 use crate::vars::game_vars::{ENTITY_LIST_PTR, FOV, LOCAL_PLAYER, NUM_PLAYERS_IN_MATCH, SMOOTH, VIEW_MATRIX};
 use crate::vars::handles::{AC_CLIENT_EXE_HMODULE, GAME_WINDOW_DIMENSIONS};
 use crate::vars::hotkeys::AIM_KEY;
-use crate::vars::ui_vars::{IS_DRAW_FOV, IS_SMOOTH};
+use crate::vars::ui_vars::{IS_AIMBOT, IS_DRAW_FOV, IS_SMOOTH};
 use crate::vec_structures::Vec3;
 
-pub unsafe fn aimbot(hdc: HDC)
+pub unsafe fn aimbot()
 {
-    if IS_DRAW_FOV
+    println!("aimbot function start");
+    if !IS_AIMBOT
     {
-        draw_utils::draw_circle(hdc, (GAME_WINDOW_DIMENSIONS.width as f32 / 2.0,
-                                      GAME_WINDOW_DIMENSIONS.height as f32 / 2.0),
-                                FOV,
-                                COLORREF(0x00FFFFFF));
+        return;
     }
     LOCAL_PLAYER = Entity::from_addr(*((AC_CLIENT_EXE_HMODULE + LOCAL_PLAYER_OFFSET) as *mut usize));
     VIEW_MATRIX = VIEW_MATRIX_ADDR as *mut [f32; 16];
@@ -61,4 +59,6 @@ pub unsafe fn aimbot(hdc: HDC)
             *((LOCAL_PLAYER.entity_starts_at_addr + PITCH_OFFSET) as *mut f32) = angle.pitch;
         }
     }
+    println!("aimbot function end");
+
 }
