@@ -1,11 +1,15 @@
 use std::ffi::{c_void, CString};
+use std::fs::File;
 use std::io::Read;
 use std::mem::size_of;
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::ptr;
 use std::ptr::null_mut;
-
+use std::sync::Mutex;
+use tracing_subscriber::{EnvFilter, fmt, Layer};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use windows::core::PCSTR;
 use windows::Win32::Foundation::GetLastError;
 use windows::Win32::System::Console::{AllocConsole, FreeConsole};
@@ -22,14 +26,10 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
             println!("[utils] Failed to get module handle: {}", module);
             return None;
         }
-        res.unwrap()
+        res
     };
 
-    if hmodule.0.is_null() {
-        println!("[utils] Failed to get module handle is null");
-        return None;
-    }
-
+    // Get module information
     let mut module_info = MODULEINFO {
         lpBaseOfDll: null_mut(),
         SizeOfImage: 0,
@@ -37,8 +37,16 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
     };
 
     unsafe {
-        GetModuleInformation(GetCurrentProcess(), hmodule, &mut module_info, size_of::<MODULEINFO>() as u32)
-            .expect("[utils] Failed to get module information");
+        if GetModuleInformation(
+            GetCurrentProcess(),
+            hmodule.unwrap(),
+            &mut module_info,
+            size_of::<MODULEINFO>() as u32,
+        ).is_err()
+        {
+            println!("[utils] Failed to get module information");
+            return None;
+        }
     }
 
     let module_base = module_info.lpBaseOfDll as usize;
@@ -46,29 +54,40 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
     let pattern_length = pattern.len();
     let mask_bytes = mask.as_bytes();
 
-    let mut current_address = module_base;
-    while current_address <= module_end - pattern_length {
-        let mut found = true;
+    // Skip table for optimization
+    let mut skip_table = [pattern_length; 256];
 
-        for j in 0..pattern_length {
-
-            let current_byte = unsafe { *(current_address as *const u8).add(j) };
-            if mask_bytes[j] != b'?' && pattern[j] != current_byte {
-                found = false;
-                break;
-            }
+    for (i, &byte) in pattern.iter().enumerate().take(pattern_length - 1).rev() {
+        if skip_table[byte as usize] == pattern_length {
+            skip_table[byte as usize] = pattern_length - 1 - i;
         }
-
-        if found {
-            return Some(current_address);
-        }
-        current_address += 1;
     }
+
+    let mut i = pattern_length - 1; // Start from the end of the pattern
+
+    while i < module_end - module_base {
+        let mut j = pattern_length - 1;
+        let mut k = i + module_base; // Convert index back to the actual memory address
+
+        // Check for a match (considering the mask)
+        while j > 0 && (unsafe { *(k as *const u8) } == pattern[j] || mask_bytes[j] == b'?') {
+            k -= 1;
+            j -= 1;
+        }
+
+        // Check if the entire pattern matched
+        if j == 0 && (unsafe { *(k as *const u8) } == pattern[j] || mask_bytes[j] == b'?') {
+            return Some(k);
+        }
+
+        // Move to the next position using the skip table
+        let current_byte = unsafe { *(module_base as *const u8).add(i) }; // Dereference to get the actual byte value
+        i += skip_table[current_byte as usize]; // Ensure current_byte is a valid index
+    }
+
     println!("[utils] Pattern {:?} with mask {} was not found in {} module", pattern, mask, module);
     None
 }
-
-
 
 
 pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usize) -> bool {
@@ -87,6 +106,7 @@ pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usi
 
     true // Indicate success
 }
+
 
 pub fn open_console() {
     unsafe
@@ -139,7 +159,7 @@ pub unsafe fn setup_tracing() {
         println!("[MainThread] Allocated console");
     }
     hudhook::enable_console_colors();
-/*    std::env::set_var("RUST_LOG", "info"); //trace
+    std::env::set_var("RUST_LOG", "info"); //trace
 
     let log_file = hudhook::util::get_dll_path()
         .map(|mut path| {
@@ -171,5 +191,5 @@ pub unsafe fn setup_tracing() {
                 .boxed(),
         )
         .with(EnvFilter::from_default_env())
-        .init();*/
+        .init();
 }

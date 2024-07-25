@@ -30,6 +30,7 @@ mod angle;
 mod getclosestentity;
 mod aimbot;
 mod misc;
+mod triggerbot;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]

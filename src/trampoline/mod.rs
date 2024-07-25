@@ -1,17 +1,11 @@
 use std::{error, fmt, result};
 use std::ffi::c_void;
-use std::ptr::{copy_nonoverlapping, write_bytes};
-
-use windows::Win32::System::Memory::{
-    MEM_COMMIT,
-    MEM_RELEASE,
-    MEM_RESERVE,
-    PAGE_EXECUTE_READWRITE,
-    PAGE_PROTECTION_FLAGS,
-    VirtualAlloc,
-    VirtualFree,
-    VirtualProtect,
-};
+use std::mem::size_of;
+use std::ptr::{copy_nonoverlapping, null_mut, write_bytes};
+use hudhook::windows::Win32::Foundation::BOOL;
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::System::Memory::{MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS, PAGE_READWRITE, PAGE_WRITECOPY, VirtualAlloc, VirtualFree, VirtualProtect, VirtualQueryEx};
+use windows::Win32::System::Threading::GetCurrentProcess;
 
 #[cfg(target_pointer_width = "32")]
 const JMP_SIZE: usize = 5;
@@ -26,6 +20,8 @@ pub enum Error {
     ToSmall,
     InvalidTarget,
     //Windows(windows::Error),
+    TooSmall,
+    NoFreeCave,
 }
 
 impl fmt::Display for Error {
@@ -33,6 +29,8 @@ impl fmt::Display for Error {
         match *self {
             Error::ToSmall => write!(f, "value to small"),
             Error::InvalidTarget => write!(f, "invalid target"),
+            Error::TooSmall => write!(f, "value to small"),
+            Error::NoFreeCave => write!(f, "no free cave"),
             //Error::Windows(ref err) => write!(f, "windows api failed '{}'", err),
         }
     }
@@ -43,6 +41,8 @@ impl error::Error for Error {
         match *self {
             Error::ToSmall => None,
             Error::InvalidTarget => None,
+            Error::TooSmall => None,
+            Error::NoFreeCave => None,
             //Error::Windows(ref err) => Some(err),
         }
     }
@@ -286,6 +286,89 @@ impl Drop for Hook {
 unsafe impl Sync for Hook {}
 unsafe impl Send for Hook {}
 
+
+
+
+
+
+// Function to find a free code cave
+unsafe fn find_free_code_cave(size: usize) -> Option<*mut c_void> {
+    let mut address: *mut c_void = null_mut();
+
+    loop {
+        let mut mbi: MEMORY_BASIC_INFORMATION = std::mem::zeroed();
+
+        // Query memory information for the current address
+        let result: usize = VirtualQueryEx(
+            GetCurrentProcess(),
+            Option::from(address as *const c_void),
+            &mut mbi,
+            size_of::<MEMORY_BASIC_INFORMATION>(),
+        );
+
+        if result == 0 {
+            break; // No more memory to query
+        }
+
+        // Check if the memory region is committed and has the right permissions
+        if mbi.State == MEM_COMMIT && (mbi.Protect & (PAGE_EXECUTE_READWRITE | PAGE_READWRITE | PAGE_WRITECOPY)) != PAGE_PROTECTION_FLAGS(0) {
+            // Calculate the start and end of the region
+            let region_size = mbi.RegionSize;
+            let base_address = mbi.BaseAddress as usize;
+
+            // Ensure the region is large enough for the cave
+            if region_size < size {
+                address = (base_address + region_size) as *mut c_void; // Move to next region
+                continue;
+            }
+
+            // Scan the region for NOPs (0x90)
+            let mut nops_count = 0;
+
+            for offset in 0..region_size {
+                let current_address = (base_address + offset) as *const u8;
+
+                // Read the byte at the current address
+                let byte = *current_address;
+
+                if byte == 0x90 { // NOP found
+                    nops_count += 1;
+                } else {
+                    nops_count = 0; // Reset count if we hit a non-NOP
+                }
+
+                // Check if we have found enough NOPs
+                if nops_count >= size {
+                    // Ensure the cave does not overlap existing code
+                    let cave_start = (current_address as usize) - (nops_count - size);
+                    let cave_end = cave_start + size;
+
+                    if cave_start >= base_address && cave_end <= (base_address + region_size) {
+                        return Some(cave_start as *mut c_void);
+                    }
+                }
+            }
+        }
+
+        // Move to the next memory region
+        address = (mbi.BaseAddress as usize + mbi.RegionSize) as *mut c_void;
+    }
+
+    None
+}
+
+// Function to set up a jump back to the original function
+unsafe fn setup_jump(gateway: *mut c_void, target: *mut c_void, len: usize) {
+    let jump_offset = target as isize - (gateway as isize + len as isize + JMP_SIZE as isize);
+
+    // Write the jump instruction
+    *(gateway.add(len) as *mut u8) = 0xE9; // JMP opcode
+    *(gateway.add(len + 1) as *mut isize) = jump_offset; // Offset
+}
+
+
+
+
 impl TrampolineHook {
     /// Hooks a function and allocates a gateway with the overridden bytes.
     ///
@@ -296,53 +379,21 @@ impl TrampolineHook {
     /// `len` is the amount of bytes that should be overridden.
     pub fn hook(src: *mut c_void, dst: *mut c_void, len: usize) -> Result<Self> {
         if len < JMP_SIZE {
-            return Err(Error::ToSmall);
+            return Err(Error::TooSmall);
         }
 
+        // Check for existing code cave
         let gateway = unsafe {
-            VirtualAlloc(
-                Option::from(0 as *const c_void),
-                len + JMP_SIZE,
-                MEM_COMMIT | MEM_RESERVE,
-                PAGE_EXECUTE_READWRITE,
-            )
+            find_free_code_cave(len + JMP_SIZE).ok_or(Error::NoFreeCave)?
         };
 
+        // Copy original bytes to the gateway
         unsafe { copy_nonoverlapping(src, gateway, len); }
 
-        if cfg!(target_pointer_width = "32") {
-            unsafe { *(((gateway as *mut usize) as usize + len) as *mut usize) = 0xE9; }
-            unsafe {
-                *(((gateway as *mut usize) as usize + len + 1) as *mut usize) =
-                    (((src as *mut isize) as isize - (gateway as *mut isize) as isize) - 5) as usize;
-            }
-        } else if cfg!(target_pointer_width = "64") {
-            let mut jmp_bytes: [u8; 14] = [
-                0xFF, 0x25, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-            ];
+        // Set up the jump back to the original function
+        unsafe { setup_jump(gateway, src, len); }
 
-            let jmp_bytes_ptr = jmp_bytes.as_mut_ptr() as *mut c_void;
-
-            unsafe {
-                copy_nonoverlapping(
-                    ((&((src as usize) + len)) as *const usize) as *mut c_void,
-                    jmp_bytes_ptr.offset(6),
-                    8,
-                );
-            }
-
-            unsafe {
-                copy_nonoverlapping(
-                    jmp_bytes_ptr,
-                    ((gateway as usize) + len) as *mut c_void,
-                    JMP_SIZE,
-                );
-            }
-        } else {
-            return Err(Error::InvalidTarget);
-        }
-
+        // Create the hook
         let hook = Hook::hook(src, dst, len)?;
         Ok(Self { gateway, hook })
     }
@@ -353,7 +404,10 @@ impl TrampolineHook {
             return Ok(());
         }
 
-        unsafe { VirtualFree(self.gateway, 0, MEM_RELEASE) }.ok().unwrap();
+        unsafe {
+            VirtualFree(self.gateway, 0, MEM_RELEASE)
+                .expect("Failed to deallocate gateway");
+        }
         self.hook.unhook()?;
         Ok(())
     }

@@ -4,6 +4,26 @@
 
     pub static IS_FORCE_FOCUS_WINDOW_THREAD_RUNNING: AtomicBool = AtomicBool::new(true);
 }*/
+/*pub mod asm_patches
+{
+    use crate::trampoline::AsmHook;
+    pub static mut TRIGGER_BOT: AsmHook = AsmHook::new();
+}*/
+pub mod hooks
+{
+    use std::sync::Mutex;
+    use ilhook::x86::HookPoint;
+    use once_cell::sync::Lazy;
+
+
+    pub static mut HOOK: Lazy<Mutex<Option<HookPoint>>> = Lazy::new(|| {
+        Mutex::new(None)
+    });
+
+
+
+    //pub static mut TRIGGER_BOT: *mut c_void = 0 as *mut c_void;
+}
 pub mod mem_patches
 {
     use crate::memorypatch::MemoryPatch;
@@ -56,6 +76,8 @@ pub mod game_vars
     pub static mut ENTITY_LIST_PTR: u32 = 0;
     pub static mut FOV: f32 = 300.0;
     pub static mut SMOOTH: f32 = 100.0;
+
+    pub static mut CURRENT_CROSSHAIR_ENTITY_ADDR: * mut usize = null_mut();
 }
 pub mod hotkeys
 {

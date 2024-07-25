@@ -2,6 +2,7 @@ use std::ffi::c_void;
 
 use crate::memorypatch::MemoryPatch;
 use crate::offsets::offsets::{AMMO_CARBINE, AMMO_IN_MAGAZINE_CARBINE, AMMO_IN_MAGAZINE_PISTOL, AMMO_IN_MAGAZINE_RIFLE, AMMO_IN_MAGAZINE_SHOTGUN, AMMO_IN_MAGAZINE_SNIPER, AMMO_IN_MAGAZINE_SUBMACHINEGUN, AMMO_PISTOL, AMMO_RIFLE, AMMO_SHOTGUN, AMMO_SNIPER, AMMO_SUBMACHINEGUN, ARMOR_OFFSET_FROM_LOCAL_PLAYER, CARBINE_COOLDOWN, GRENADES_COUNT, HEALTH_OFFSET_FROM_LOCAL_PLAYER, KNIFE_COOLDOWN, PISTOL_COOLDOWN, RIFLE_COOLDOWN, SHOTGUN_COOLDOWN, SNIPER_COOLDOWN, SUBMACHINEGUN_COOLDOWN};
+use crate::triggerbot::{get_crosshair_entity, setup};
 use crate::utils::find_pattern;
 use crate::vars::game_vars::LOCAL_PLAYER;
 use crate::vars::mem_patches::{NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH};
@@ -44,6 +45,7 @@ pub unsafe fn init_mem_patches()
         0x02,
         rapid_fire_res as *mut c_void,
         2usize).expect("Failed to patch Rapid Fire");
+    setup();
 }
 pub unsafe fn player_fields_monitor()
 {
