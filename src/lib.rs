@@ -32,6 +32,7 @@ mod aimbot;
 mod misc;
 mod triggerbot;
 mod game;
+mod clash_font;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]

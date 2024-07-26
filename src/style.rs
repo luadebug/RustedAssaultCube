@@ -1,5 +1,5 @@
 #[allow(unused)]
-pub(crate) fn set_dark_red_style(ctx: &mut hudhook::imgui::Context) {
+pub(crate) fn set_style_crimson(ctx: &mut hudhook::imgui::Context) {
     let style = ctx.style_mut();
 
     style.use_dark_colors();
@@ -82,8 +82,9 @@ pub(crate) fn set_dark_red_style(ctx: &mut hudhook::imgui::Context) {
 }
 
 
+
 #[allow(unused)]
-pub(crate) fn set_dark_style(ctx: &mut hudhook::imgui::Context) {
+pub(crate) fn set_style_unicore(ctx: &mut hudhook::imgui::Context) {
     let style = ctx.style_mut();
 
     // Set alignment and padding

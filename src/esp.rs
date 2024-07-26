@@ -3,14 +3,14 @@ use std::ptr::null;
 use std::result::Result::Ok;
 use std::thread;
 use std::time::Duration;
+
 use windows::core::PCSTR;
 use windows::Win32::{Foundation::RECT, Graphics::Gdi::{FillRect, HBRUSH, HDC}};
 use windows::Win32::Foundation::{COLORREF, FALSE, GetLastError, HWND, TRUE};
 use windows::Win32::Graphics::Gdi::{CreateCompatibleBitmap, CreateCompatibleDC, CreateSolidBrush, DeleteDC, DeleteObject, GetDC, HBITMAP, InvalidateRect, ReleaseDC, SelectObject, TransparentBlt};
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
-use windows::Win32::UI::WindowsAndMessaging::{FindWindowA, GetWindowLongA, GWL_EXSTYLE, MSG, PeekMessageA, SetWindowLongA, WM_SIZE, WS_EX_TRANSPARENT};
+use windows::Win32::UI::WindowsAndMessaging::{FindWindowA, GetWindowLongA, GWL_EXSTYLE, SetWindowLongA, WS_EX_TRANSPARENT};
 
-use crate::aimbot::aimbot;
 use crate::distance;
 use crate::draw_utils::{draw_border_box, draw_circle, draw_scaling_bar, draw_text};
 use crate::entity::Entity;

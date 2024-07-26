@@ -1,21 +1,23 @@
+use std::mem;
 use std::path::PathBuf;
 use std::ptr::addr_of_mut;
 
 use hudhook::{imgui, MessageFilter, RenderContext};
-use hudhook::imgui::{Context, internal::RawCast, Io, sys::{ImFontAtlas_AddFontFromFileTTF, ImFontAtlas_GetGlyphRangesChineseFull}};
+use hudhook::imgui::{Context, FontId, FontSource, internal::RawCast, Io};
+//use hudhook::imgui::sys::{ImFontAtlas_AddFontFromMemoryTTF, ImFontConfig_ImFontConfig};
+use hudhook::imgui::sys::{cty, ImFontAtlas_AddFontFromFileTTF, ImFontAtlas_AddFontFromMemoryTTF, ImFontAtlas_GetGlyphRangesChineseFull,  ImFontAtlas_GetGlyphRangesCyrillic, ImFontConfig, ImFontConfig_ImFontConfig};
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_DELETE, VK_F1, VK_F10, VK_F11, VK_F12, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_INSERT};
 
 use crate::aimbot::aimbot;
 use crate::esp::esp_entrypoint;
 use crate::game;
 use crate::game::set_brightness_toggle;
-use crate::style::set_dark_style;
+use crate::style::set_style_unicore;
 use crate::vars::game_vars::{FOV, SMOOTH, TRIGGER_DELAY};
 use crate::vars::mem_patches::{MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH};
 use crate::vars::ui_vars::{IS_AIMBOT, IS_DRAW_FOV, IS_ESP, IS_FULLBRIGHT, IS_GRENADES_INFINITE, IS_INFINITE_AMMO, IS_INVULNERABLE, IS_MAPHACK, IS_NO_RECOIL, IS_NO_RELOAD, IS_RAPID_FIRE, IS_SHOW_UI, IS_SMOOTH, IS_TRIGGERBOT};
 
 pub unsafe fn on_frame(ui: &imgui::Ui) {
-    ui.text("Hello from `hudhook`!");
     if ui.checkbox("[Delete] ESP", &mut *addr_of_mut!(IS_ESP)) {
         IS_ESP = !IS_ESP;
         if IS_ESP {
@@ -101,8 +103,12 @@ pub unsafe fn on_frame(ui: &imgui::Ui) {
 
 
 
+pub static mut fonts_storage: Option<FontIDs> = Some(FontIDs {
+    small: unsafe {mem::zeroed()},
+    normal: unsafe {mem::zeroed()},
+    big: unsafe { mem::zeroed() }
+});
 pub struct RenderLoop;
-
 impl RenderLoop {
     pub fn new() -> Self {
         println!("Initializing");
@@ -117,23 +123,52 @@ impl Default for RenderLoop {
     }
 }
 
+struct FontIDs {
+    small: FontId,
+    normal: FontId,
+    big: FontId,
+}
+
+unsafe impl Send for FontIDs {}
+
+unsafe impl Sync for FontIDs {}
+
+unsafe fn init_fonts(_ctx: &mut Context)
+{
+    let fonts = _ctx.fonts();
+    fonts_storage = Some(FontIDs {
+        small:fonts.add_font(
+            &[FontSource::TtfData {
+                data: &crate::clash_font::clash,
+                size_pixels: 11.,
+                config: None,
+            }]),
+        normal: fonts.add_font(
+            &[FontSource::TtfData {
+                data: &crate::clash_font::clash,
+                size_pixels: 18.,
+                config: None,
+            }]),
+        big:fonts.add_font(
+            &[FontSource::TtfData {
+                data: &crate::clash_font::clash,
+                size_pixels: 24.,
+                config: None,
+            }]),
+    });
+}
 impl hudhook::ImguiRenderLoop for RenderLoop {
+
     fn initialize<'a>(&'a mut self, _ctx: &mut Context,
                       _render_context: &'a mut dyn RenderContext) {
 
-
         _ctx.set_ini_filename(None);
 
-        unsafe {
-            ImFontAtlas_AddFontFromFileTTF(
-                _ctx.fonts().raw_mut(),
-                "C:\\windows\\fonts\\calibri.ttf\0".as_ptr().cast(),
-                26.0,
-                std::ptr::null(),
-                ImFontAtlas_GetGlyphRangesChineseFull(_ctx.fonts().raw_mut()),
-            )
-        };
-        set_dark_style(_ctx);
+        unsafe { init_fonts(_ctx); }
+
+
+        set_style_unicore(_ctx);
+
         _ctx.io_mut().config_flags |= imgui::ConfigFlags::NAV_ENABLE_KEYBOARD;
         _ctx.io_mut().config_flags |= imgui::ConfigFlags::NAV_ENABLE_SET_MOUSE_POS;
         _ctx.io_mut().backend_flags |= imgui::BackendFlags::HAS_SET_MOUSE_POS;
@@ -187,6 +222,21 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
             }
 
 
+                let width = ui.io().display_size[0];
+                let font_id = fonts_storage.as_mut()
+                    .map(|fonts| {
+                        if width > 2000. {
+                            fonts.big
+                        } else if width > 1200. {
+                            fonts.normal
+                        } else {
+                            fonts.small
+                        }
+                    })
+            .unwrap();
+
+
+            let custom_font = ui.push_font(font_id);
 
             ui.window("[Insert] Menu")
                 .title_bar(true)
@@ -194,7 +244,11 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                 .position([300.0, 300.0], imgui::Condition::FirstUseEver)
                 .build(||
                 {
+
+
                     on_frame(ui);
+
+                    custom_font.pop();
                 });
         }
     }
