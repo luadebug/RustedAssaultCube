@@ -1,21 +1,10 @@
 use std::ffi::{c_void, CString};
-
 use hudhook::{eject, Hudhook};
 use hudhook::hooks::opengl3::ImguiOpenGl3Hooks;
-//use hudhook::mh::MH_Initialize;
-//use hudhook::mh::{MH_Initialize, MH_STATUS};
-
-
-
-
-
-
-
 use hudhook::windows::Win32::Foundation::HINSTANCE;
 use windows::core::PCSTR;
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 use windows::Win32::System::Threading::Sleep;
-
 use crate::esp::esp_entrypoint;
 use crate::ui::RenderLoop;
 use crate::utils::setup_tracing;
@@ -39,30 +28,6 @@ pub extern "system" fn MainThread(lpReserved: *mut c_void) -> u32 {
         }
         println!("[MainThread] Found OPENGL32.dll.");
         println!("[MainThread] OPENGL32_DLL_HMODULE is: {:?}", OPENGL32_DLL_HMODULE.0);
-/*        if let Err(e) = MH_Initialize().ok()
-        {
-            if e == MH_STATUS::MH_OK
-            {
-                println!("[MainThread] MinHook has been initialized. MH_STATUS is: {:?}", e);
-            } else {
-                println!("[MainThread] MinHook failed to initialize. MH_STATUS is: {:?}", e);
-            }
-        }*/
-
-
-
-/*        if let Err(e) = MinHook::initilize().ok()
-        {
-            if e == MH_STATUS::MH_OK
-            {
-                println!("[MainThread] MinHook has been initialized. MH_STATUS is: {:?}", e);
-            } else {
-                println!("[MainThread] MinHook failed to initialize. MH_STATUS is: {:?}", e);
-            }
-        }*/
-
-
-
 
         if let Err(e) = Hudhook::builder()
             .with::<ImguiOpenGl3Hooks>(RenderLoop)

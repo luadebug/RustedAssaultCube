@@ -2,10 +2,11 @@ use std::ffi::c_void;
 
 use crate::memorypatch::MemoryPatch;
 use crate::offsets::offsets::{AMMO_CARBINE, AMMO_IN_MAGAZINE_CARBINE, AMMO_IN_MAGAZINE_PISTOL, AMMO_IN_MAGAZINE_RIFLE, AMMO_IN_MAGAZINE_SHOTGUN, AMMO_IN_MAGAZINE_SNIPER, AMMO_IN_MAGAZINE_SUBMACHINEGUN, AMMO_PISTOL, AMMO_RIFLE, AMMO_SHOTGUN, AMMO_SNIPER, AMMO_SUBMACHINEGUN, ARMOR_OFFSET_FROM_LOCAL_PLAYER, CARBINE_COOLDOWN, GRENADES_COUNT, HEALTH_OFFSET_FROM_LOCAL_PLAYER, KNIFE_COOLDOWN, PISTOL_COOLDOWN, RIFLE_COOLDOWN, SHOTGUN_COOLDOWN, SNIPER_COOLDOWN, SUBMACHINEGUN_COOLDOWN};
-use crate::triggerbot::{get_crosshair_entity, setup};
+
+use crate::triggerbot::{get_crosshair_entity, setup_trigger_bot};
 use crate::utils::find_pattern;
 use crate::vars::game_vars::LOCAL_PLAYER;
-use crate::vars::mem_patches::{NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH};
+use crate::vars::mem_patches::{MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH};
 use crate::vars::ui_vars::{IS_GRENADES_INFINITE, IS_INFINITE_AMMO, IS_INVULNERABLE, IS_NO_RELOAD};
 
 pub unsafe fn init_mem_patches()
@@ -33,19 +34,36 @@ pub unsafe fn init_mem_patches()
     else {
         println!("[esp] rapid fire pattern not found");
     }
+    let map = find_pattern("ac_client.exe",
+                                  &[0x75, 0x57, 0x85, 0xC9, 0x0F, 0x84, 0xA1, 0x00, 0x00, 0x00],
+                                  "xxxxxxxxxx");
+    let mut map_res:usize = 0;
+    if map.is_some() {
+        map_res = map.unwrap();
+        println!("[esp] rapid fire pattern found at: {:#x}", map_res);
+    }
+    else {
+        println!("[esp] rapid fire pattern not found");
+    }
     //83 EC 28 -> C2 08 00
     NO_RECOIL_MEMORY_PATCH = MemoryPatch::new(
-        &[0xC2, 0x08, 0x00],
+        &[0xC2, 0x08, 0x00], // return 0008
         0x03,
         no_recoil_res as *mut c_void,
         3usize).expect("Failed to patch No Recoil");
     //89 08 -> 90 90
     RAPID_FIRE_MEMORY_PATCH = MemoryPatch::new(
-        &[0x90, 0x90],
+        &[0x90, 0x90],  // nop nop
         0x02,
         rapid_fire_res as *mut c_void,
         2usize).expect("Failed to patch Rapid Fire");
-    setup();
+    MAPHACK_MEMORY_PATCH = MemoryPatch::new(
+        &[0x90, 0x90],
+        0x02,
+        map_res as *mut c_void,
+        10usize).expect("Failed to patch map");
+    setup_trigger_bot();
+
 }
 pub unsafe fn player_fields_monitor()
 {

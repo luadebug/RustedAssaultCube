@@ -95,6 +95,7 @@ pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usi
 
     // Change the memory protection to PAGE_READWRITE
     if VirtualProtect(address as *mut _, size, PAGE_READWRITE, &mut old_protect).is_err() {
+        println!("[read_memory] Failed to change memory protection to RW");
         return false; // VirtualProtect failed
     }
 
@@ -102,7 +103,9 @@ pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usi
     ptr::copy_nonoverlapping(address, buffer, size);
 
     // Restore the old memory protection
-    VirtualProtect(address as *mut _, size, old_protect, &mut old_protect).ok().unwrap();
+    if VirtualProtect(address as *mut _, size, old_protect, &mut old_protect).is_err() {
+        println!("[read_memory] Failed to restore original memory protection");
+    }
 
     true // Indicate success
 }

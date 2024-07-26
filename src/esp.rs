@@ -108,7 +108,6 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
         println!("[esp] FindWindowA succeeded with window handle: {:?}", GAME_WINDOW_HANDLE.0);
     }
 
-
     // Set window style to WS_EX_TRANSPARENT
     //println!("[esp] Set window style to Getwinlong");
     let ex_style = GetWindowLongA(GAME_WINDOW_HANDLE, GWL_EXSTYLE);
@@ -116,11 +115,6 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
     SetWindowLongA(GAME_WINDOW_HANDLE, GWL_EXSTYLE, ex_style | WS_EX_TRANSPARENT.0 as i32);
 
 
-
-
-/*    OG_WND_PROC = SetWindowLongPtrA(GAME_WINDOW_HANDLE,
-                                    WINDOW_LONG_PTR_INDEX(GWL_WNDPROC.0),
-                                    (hook_wnd_process as *c_void) as i32);*/
     // Get device context and create a compatible DC
     println!("[esp] Get device context and create a compatible DC");
     let hdc = GetDC(GAME_WINDOW_HANDLE);
@@ -176,6 +170,7 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
             ENTITY_LIST_PTR = *((AC_CLIENT_EXE_HMODULE + ENTITY_LIST_OFFSET) as *const u32);
         }
         player_fields_monitor();
+
         if !IS_ESP {
             println!("[esp] Turning off ESP");
             thread::sleep(std::time::Duration::from_millis(1000));

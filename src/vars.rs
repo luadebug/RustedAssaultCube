@@ -1,28 +1,16 @@
-/*pub mod hook_threads
-{
-    use std::sync::atomic::AtomicBool;
-
-    pub static IS_FORCE_FOCUS_WINDOW_THREAD_RUNNING: AtomicBool = AtomicBool::new(true);
-}*/
-/*pub mod asm_patches
-{
-    use crate::trampoline::AsmHook;
-    pub static mut TRIGGER_BOT: AsmHook = AsmHook::new();
-}*/
 pub mod hooks
 {
     use std::sync::Mutex;
     use ilhook::x86::HookPoint;
     use once_cell::sync::Lazy;
-
-
-    pub static mut HOOK: Lazy<Mutex<Option<HookPoint>>> = Lazy::new(|| {
+    pub static mut TRIGGERBOT_HOOK: Lazy<Mutex<Option<HookPoint>>> = Lazy::new(|| {
         Mutex::new(None)
     });
 
+    pub static mut RADAR_HOOK: Lazy<Mutex<Option<HookPoint>>> = Lazy::new(|| {
+        Mutex::new(None)
+    });
 
-
-    //pub static mut TRIGGER_BOT: *mut c_void = 0 as *mut c_void;
 }
 pub mod mem_patches
 {
@@ -30,7 +18,7 @@ pub mod mem_patches
 
     pub static mut NO_RECOIL_MEMORY_PATCH: MemoryPatch = MemoryPatch::new_empty();
     pub static mut RAPID_FIRE_MEMORY_PATCH: MemoryPatch = MemoryPatch::new_empty();
-
+    pub static mut MAPHACK_MEMORY_PATCH: MemoryPatch = MemoryPatch::new_empty();
 }
 pub mod ui_vars
 {
@@ -45,6 +33,9 @@ pub mod ui_vars
     pub static mut IS_DRAW_FOV: bool = false;
     pub static mut IS_SMOOTH: bool = false;
     pub static mut IS_AIMBOT: bool = false;
+    pub static mut IS_TRIGGERBOT: bool = false;
+    pub static mut IS_MAPHACK: bool = false;
+    pub static mut IS_FULLBRIGHT: bool = false;
 }
 pub mod handles
 {
@@ -76,8 +67,10 @@ pub mod game_vars
     pub static mut ENTITY_LIST_PTR: u32 = 0;
     pub static mut FOV: f32 = 300.0;
     pub static mut SMOOTH: f32 = 100.0;
+    pub static mut TRIGGER_DELAY: f32 = 100.0;
 
     pub static mut CURRENT_CROSSHAIR_ENTITY_ADDR: * mut usize = null_mut();
+    pub static mut TRIGGER: bool = false;
 }
 pub mod hotkeys
 {

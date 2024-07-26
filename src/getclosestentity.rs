@@ -20,10 +20,6 @@ pub unsafe fn get_closest_entity() -> Entity {
             .expect("[getcloseentity] Error getting module handle")
     };
 
-    println!(
-        "[getcloseentity] Module base addr base_address={:#x}",
-        AC_CLIENT_EXE_HMODULE
-    );
     LOCAL_PLAYER = Entity::from_addr(*((AC_CLIENT_EXE_HMODULE + LOCAL_PLAYER_OFFSET) as *mut usize));
     VIEW_MATRIX = VIEW_MATRIX_ADDR as *mut [f32; 16];
     NUM_PLAYERS_IN_MATCH = *((AC_CLIENT_EXE_HMODULE + NUMBER_OF_PLAYERS_IN_MATCH_OFFSET) as *const i32) as usize;

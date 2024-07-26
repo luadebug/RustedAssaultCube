@@ -44,4 +44,7 @@ pub mod offsets {
     pub const VIEW_MATRIX_ADDR: usize = 0x057DFD0;
     pub const ENTITY_LIST_OFFSET: usize = 0x18AC04;
 
+    pub const BRIGHTNESS: usize = 0x182D40;
+    pub const SET_BRIGHTNESS: usize = 0xBA180;
+
 }
