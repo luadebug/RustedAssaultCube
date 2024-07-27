@@ -26,6 +26,7 @@ impl MemoryPatch {
         }
     }
     // Constructor for patching with a buffer and size
+    #[allow(unused)]
     pub fn new(buffer_to_patch: &[u8], size_buffer: usize, location: *mut c_void, size_location: usize) -> Result<Self, Box<dyn Error>> {
         if size_buffer > size_location {
             return Err("Error on MemoryPatch trying to write buffer bigger than expected".into());
@@ -54,6 +55,7 @@ impl MemoryPatch {
     }
 
     // Constructor for patching with a mask
+    #[allow(unused)]
     pub fn new_with_mask(buffer_to_patch: &[u8], mask: &[u8], size_buffer: usize, location: *mut c_void) -> Result<Self, Box<dyn Error>> {
         // Allocate memory for patch instructions and original instructions
         let patch_instructions = unsafe { alloc(Layout::from_size_align(size_buffer, mem::align_of::<u8>())?) };

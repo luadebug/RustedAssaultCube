@@ -15,7 +15,7 @@ use crate::distance;
 use crate::draw_utils::{draw_border_box, draw_circle, draw_scaling_bar, draw_text};
 use crate::entity::Entity;
 use crate::get_window_dimensions::get_window_dimensions;
-use crate::misc::{init_mem_patches, player_fields_monitor};
+use crate::misc::init_mem_patches;
 use crate::offsets::offsets::{ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, VIEW_MATRIX_ADDR};
 use crate::vars::game_vars::{ENTITY_LIST_PTR, FOV, VIEW_MATRIX};
 use crate::vars::game_vars::LOCAL_PLAYER;
@@ -26,7 +26,7 @@ use crate::vars::handles::GAME_WINDOW_HANDLE;
 use crate::vars::ui_vars::{IS_DRAW_FOV, IS_ESP};
 use crate::vec_structures::Vec2;
 use crate::world_to_screen::world_to_screen;
-
+#[allow(unused)]
 unsafe fn esp_cleanup(
     window_handle_hwnd: HWND,
     hdc: HDC,
@@ -157,8 +157,8 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
                 println!("[esp] Window resized to: {}x{}", new_width, new_height);
 
                 // Cleanup old resources
-                DeleteObject(mem_bitmap);
-                DeleteDC(mem_dc);
+                let _ = DeleteObject(mem_bitmap);
+                let _ = DeleteDC(mem_dc);
 
                 // Create a new compatible DC and bitmap with the new dimensions
                 let hdc = GetDC(GAME_WINDOW_HANDLE);
@@ -198,7 +198,6 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
             println!("[esp] Entity list ptr not found");
             ENTITY_LIST_PTR = *((AC_CLIENT_EXE_HMODULE + ENTITY_LIST_OFFSET) as *const u32);
         }
-        player_fields_monitor();
 
         if !IS_ESP {
             println!("[esp] Turning off ESP");
@@ -264,7 +263,6 @@ pub unsafe fn esp_entrypoint() -> Result<(), Box<String>> {
                 head_screen_pos.y,
                 feet_screen_pos.x - 15.0,
                 feet_screen_pos.y,
-                box_width as f32 * 2.5,
                 entity.health() as f32,
                 100.0,
                 COLORREF(0x0000FF00),

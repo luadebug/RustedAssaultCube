@@ -1,5 +1,5 @@
-
 use crate::vec_structures::{Vec2, Vec3};
+
 pub unsafe fn world_to_screen(
     position: Vec3,
     screen: &mut Vec2,

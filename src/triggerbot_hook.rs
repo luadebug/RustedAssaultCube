@@ -8,6 +8,7 @@ use windows::Win32::Foundation::GetLastError;
 use windows::Win32::UI::Input::KeyboardAndMouse::{INPUT, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, SendInput};
 
 use crate::entity::Entity;
+use crate::pattern_mask::PatternMask;
 use crate::utils::find_pattern;
 use crate::vars::game_vars::{CURRENT_CROSSHAIR_ENTITY_ADDR, LOCAL_PLAYER, TRIGGER_DELAY};
 use crate::vars::hooks::TRIGGERBOT_HOOK;
@@ -61,38 +62,46 @@ pub(crate) unsafe extern "cdecl" fn get_crosshair_entity(
 }
 
 
-
+/*83 ? ? 89 ? ? ? 8B ? 83 3D*/
 // Example of finding a pattern and setting up the hook
 pub fn setup_trigger_bot() {
     unsafe {
-        let trigger_bot = find_pattern("ac_client.exe",
-                                       &[0x83, 0xC4, 0x10, 0x89, 0x44, 0x24, 0x10, 0x8B],
-                                       "xxxxxxxx");
-
-        if let Some(addr) = trigger_bot {
-            println!("[triggerbot->setup_trigger_bot] trigger bot pattern found at: {:#x}", addr);
-            let hooker = Hooker::new(
-                addr,
-                HookType::JmpBack(get_crosshair_entity),
-                CallbackOption::None,
-                0,
-                HookFlags::empty(),
+        thread::spawn(||
+        {
+            let pattern_mask = PatternMask::aob_to_pattern_mask(
+                "83 ? ? 89 ? ? ? 8B ? 83 3D"
             );
-            let hook_res = hooker.hook();
 
-        match hook_res {
-            Ok(trampoline_hook) => {
-                *TRIGGERBOT_HOOK.lock().unwrap() = Some(trampoline_hook);
-                println!("[triggerbot->setup_trigger_bot] trigger bot hook succeeded!");
+            println!("[TriggerBotHook] {:#x}", &pattern_mask);
+            let trigger_bot_aob = find_pattern("ac_client.exe",
+                                               &*pattern_mask.aob_pattern,
+                                               &pattern_mask.mask_to_string());
+/*                                               &[0x83, 0xC4, 0x10, 0x89, 0x44, 0x24, 0x10, 0x8B],
+                                               "xxxxxxxx");*/
+
+            if let Some(addr) = trigger_bot_aob {
+                println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot pattern found at: {:#x}", addr);
+                let hooker = Hooker::new(
+                    addr,
+                    HookType::JmpBack(get_crosshair_entity),
+                    CallbackOption::None,
+                    0,
+                    HookFlags::empty(),
+                );
+                let hook_res = hooker.hook();
+
+                match hook_res {
+                    Ok(trampoline_hook) => {
+                        *TRIGGERBOT_HOOK.lock().unwrap() = Some(trampoline_hook);
+                        println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook succeeded!");
+                    }
+                    Err(e) => {
+                        println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook failed: {:?}", e);
+                    }
+                }
+            } else {
+                println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot pattern not found");
             }
-            Err(e) => {
-                println!("[triggerbot->setup_trigger_bot] trigger bot hook failed: {:?}", e);
-            }
-        }
-
-
-        } else {
-            println!("[triggerbot->setup_trigger_bot] trigger bot pattern not found");
-        }
+        });
     }
 }

@@ -1,13 +1,15 @@
 pub mod hooks
 {
     use std::sync::Mutex;
+
     use ilhook::x86::HookPoint;
     use once_cell::sync::Lazy;
+
     pub static mut TRIGGERBOT_HOOK: Lazy<Mutex<Option<HookPoint>>> = Lazy::new(|| {
         Mutex::new(None)
     });
 
-    pub static mut RADAR_HOOK: Lazy<Mutex<Option<HookPoint>>> = Lazy::new(|| {
+    pub static mut LOCAL_PLAYER_HOOK: Lazy<Mutex<Option<HookPoint>>> = Lazy::new(|| {
         Mutex::new(None)
     });
 
@@ -51,10 +53,6 @@ pub mod handles
     pub static mut GAME_WINDOW_HANDLE: HWND = HWND(0 as *mut c_void);
     pub static mut GAME_WINDOW_DIMENSIONS: WindowDimensions = WindowDimensions { width: 0, height: 0 };
 }
-pub mod procedure_addresses
-{
-    pub static mut SWAPBUFFERS_ADDRESS: isize = 0isize;
-}
 pub mod game_vars
 {
     use std::ptr::null_mut;
@@ -70,7 +68,6 @@ pub mod game_vars
     pub static mut TRIGGER_DELAY: f32 = 100.0;
 
     pub static mut CURRENT_CROSSHAIR_ENTITY_ADDR: * mut usize = null_mut();
-    pub static mut TRIGGER: bool = false;
 }
 pub mod hotkeys
 {

@@ -7,6 +7,7 @@ use std::process::{Command, Stdio};
 use std::ptr;
 use std::ptr::null_mut;
 use std::sync::Mutex;
+
 use tracing_subscriber::{EnvFilter, fmt, Layer};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -54,36 +55,78 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
     let pattern_length = pattern.len();
     let mask_bytes = mask.as_bytes();
 
-    // Skip table for optimization
-    let mut skip_table = [pattern_length; 256];
+    // Validate that the pattern and mask lengths match
+    if pattern_length != mask_bytes.len() {
+        println!("[utils] Error: Pattern and mask lengths do not match!");
+        return None;
+    }
 
-    for (i, &byte) in pattern.iter().enumerate().take(pattern_length - 1).rev() {
-        if skip_table[byte as usize] == pattern_length {
-            skip_table[byte as usize] = pattern_length - 1 - i;
+    // Skip table for optimization (modified to handle wildcards)
+    let mut skip_table = [pattern_length; 256];
+    let mut last_valid_byte_index = pattern_length; // Keep track of the last non-wildcard byte
+
+    for i in (0..pattern_length).rev() {
+        if mask_bytes[i] == b'x' {
+            last_valid_byte_index = i;
+            break; // Optimization: No need to process further if we find 'x'
         }
     }
 
-    let mut i = pattern_length - 1; // Start from the end of the pattern
+    for i in (0..last_valid_byte_index).rev() {
+        if mask_bytes[i] == b'x' { // Only consider non-wildcard bytes for the skip table
+            skip_table[pattern[i] as usize] = last_valid_byte_index - i;
+        }
+    }
+
+    let mut i = last_valid_byte_index; // Start from the last non-wildcard byte
 
     while i < module_end - module_base {
-        let mut j = pattern_length - 1;
-        let mut k = i + module_base; // Convert index back to the actual memory address
+        let mut j = last_valid_byte_index;
+        let mut k = i + module_base;
 
         // Check for a match (considering the mask)
-        while j > 0 && (unsafe { *(k as *const u8) } == pattern[j] || mask_bytes[j] == b'?') {
+        while j > 0 && (mask_bytes[j] == b'?' || unsafe { *(k as *const u8) } == pattern[j]) {
             k -= 1;
             j -= 1;
         }
 
         // Check if the entire pattern matched
-        if j == 0 && (unsafe { *(k as *const u8) } == pattern[j] || mask_bytes[j] == b'?') {
+        if j == 0 && (mask_bytes[j] == b'?' || unsafe { *(k as *const u8) } == pattern[j]) {
             return Some(k);
         }
 
-        // Move to the next position using the skip table
-        let current_byte = unsafe { *(module_base as *const u8).add(i) }; // Dereference to get the actual byte value
-        i += skip_table[current_byte as usize]; // Ensure current_byte is a valid index
+        // Move to the next position using the skip table (modified)
+        if i < module_end - module_base { // Prevent potential out-of-bounds access
+            let current_byte = unsafe { *(module_base as *const u8).add(i) };
+            i += skip_table[current_byte as usize];
+        } else {
+            break; // Exit the loop if we've reached the end of the module
+        }
     }
+
+
+
+    let mut i = 0; // Start from the beginning of the module
+
+    while i < module_end - module_base - pattern_length { // Adjusted loop condition
+        let mut matched = true;
+        for j in 0..pattern_length {
+            if mask_bytes[j] == b'x' && pattern[j] != unsafe { *(module_base as *const u8).add(i + j) } {
+                matched = false;
+                break;
+            }
+        }
+
+        if matched {
+            return Some(module_base + i);
+        }
+
+        i += 1; // Move to the next byte in the module
+    }
+
+
+
+
 
     println!("[utils] Pattern {:?} with mask {} was not found in {} module", pattern, mask, module);
     None
@@ -110,21 +153,21 @@ pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usi
     true // Indicate success
 }
 
-
+#[allow(unused)]
 pub fn open_console() {
     unsafe
     {
         AllocConsole().expect("Failed to allocate console");
     }
 }
-
+#[allow(unused)]
 pub fn close_console() {
     unsafe
     {
         FreeConsole().expect("Failed to free console");
     }
 }
-
+#[allow(unused)]
 pub fn run_cmd(command: &str) -> String {
     let mut result = String::new();
 

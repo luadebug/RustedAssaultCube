@@ -1,7 +1,10 @@
 use std::ffi::c_void;
+
+use windows::Win32::System::Memory::{PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS, VirtualProtect};
+
 use crate::offsets::offsets::{BRIGHTNESS, SET_BRIGHTNESS};
 use crate::vars::handles::AC_CLIENT_EXE_HMODULE;
-use windows::Win32::System::Memory::{PAGE_PROTECTION_FLAGS, PAGE_EXECUTE_READWRITE, VirtualProtect};
+
 pub unsafe fn c_brightness() -> *mut usize {
     (AC_CLIENT_EXE_HMODULE + BRIGHTNESS) as *mut usize
 }
@@ -10,9 +13,9 @@ pub unsafe fn set_brightness() -> *mut usize {
     (AC_CLIENT_EXE_HMODULE + SET_BRIGHTNESS) as *mut usize
 }
 
-pub unsafe fn set_brightness_toggle(isON: bool)
+pub unsafe fn set_brightness_toggle(is_on: bool)
 {
-    if isON
+    if is_on
     {
         *c_brightness() = 100;
     }

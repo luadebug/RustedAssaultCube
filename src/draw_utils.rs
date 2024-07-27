@@ -12,7 +12,6 @@ pub unsafe fn draw_scaling_bar(
     y1: f32,
     x2: f32,
     y2: f32,
-    width: f32, // Width for the border
     value: f32,
     max: f32,
     color: COLORREF,
@@ -33,7 +32,7 @@ pub unsafe fn draw_scaling_bar(
     let old_brush = SelectObject(hdc, border_brush);
 
     // Draw the border rectangle
-    Rectangle(
+    let _ = Rectangle(
         hdc,
         x1 as i32,
         y1 as i32,
@@ -43,7 +42,7 @@ pub unsafe fn draw_scaling_bar(
 
     // Restore the old brush
     SelectObject(hdc, old_brush);
-    DeleteObject(border_brush);
+    let _ = DeleteObject(border_brush);
 
     // Create a brush for the filled area
     let fill_brush = CreateSolidBrush(color);
@@ -62,7 +61,7 @@ pub unsafe fn draw_scaling_bar(
 
     // Clean up: restore the old brush and delete the created brush
     SelectObject(hdc, old_fill_brush);
-    DeleteObject(fill_brush);
+    let _ = DeleteObject(fill_brush);
 }
 
 fn draw_filled_rect(hdc: HDC, brush: HBRUSH, x: i32, y: i32, width: i32, height: i32) {
@@ -139,7 +138,7 @@ pub unsafe fn draw_text(hdc: HDC, x: i32, y: i32, ent: &Entity) {
     // Clean up: select the old font back into the device context and delete the created font
     unsafe {
         SelectObject(hdc, old_font);
-        DeleteObject(font);
+        let _ = DeleteObject(font);
     }
 
 }
@@ -156,9 +155,9 @@ pub unsafe fn draw_circle(hdc: HDC, center: (f32, f32), radius: f32, color: COLO
     let bottom = (center.1 + radius) as i32;
 
     // Draw the circle (ellipse with equal width and height)
-    Ellipse(hdc, left, top, right, bottom);
+    let _ = Ellipse(hdc, left, top, right, bottom);
 
     // Restore the old brush and delete the created brush
     SelectObject(hdc, old_brush);
-    DeleteObject(brush);
+    let _ = DeleteObject(brush);
 }
