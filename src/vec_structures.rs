@@ -7,6 +7,7 @@ pub struct Vec2 {
 
 impl Vec2 {
     // Constructor for Vec2
+    #[allow(unused)]
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
@@ -22,6 +23,7 @@ pub struct Vec3 {
 
 impl Vec3 {
     // Constructor for Vec3
+    #[allow(unused)]
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
@@ -38,6 +40,7 @@ pub struct Vec4 {
 
 impl Vec4 {
     // Constructor for Vec4
+    #[allow(unused)]
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
     }

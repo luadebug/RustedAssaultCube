@@ -3,9 +3,7 @@ use std::path::PathBuf;
 use std::ptr::addr_of_mut;
 
 use hudhook::{imgui, MessageFilter, RenderContext};
-use hudhook::imgui::{Context, FontId, FontSource, internal::RawCast, Io};
-//use hudhook::imgui::sys::{ImFontAtlas_AddFontFromMemoryTTF, ImFontConfig_ImFontConfig};
-use hudhook::imgui::sys::{cty, ImFontAtlas_AddFontFromFileTTF, ImFontAtlas_AddFontFromMemoryTTF, ImFontAtlas_GetGlyphRangesChineseFull,  ImFontAtlas_GetGlyphRangesCyrillic, ImFontConfig, ImFontConfig_ImFontConfig};
+use hudhook::imgui::{Context, FontId, FontSource, Io};
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_DELETE, VK_F1, VK_F10, VK_F11, VK_F12, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_INSERT};
 
 use crate::aimbot::aimbot;
@@ -18,6 +16,8 @@ use crate::vars::mem_patches::{MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RAP
 use crate::vars::ui_vars::{IS_AIMBOT, IS_DRAW_FOV, IS_ESP, IS_FULLBRIGHT, IS_GRENADES_INFINITE, IS_INFINITE_AMMO, IS_INVULNERABLE, IS_MAPHACK, IS_NO_RECOIL, IS_NO_RELOAD, IS_RAPID_FIRE, IS_SHOW_UI, IS_SMOOTH, IS_TRIGGERBOT};
 
 pub unsafe fn on_frame(ui: &imgui::Ui) {
+    //let tab = 0;
+    //ui.key
     if ui.checkbox("[Delete] ESP", &mut *addr_of_mut!(IS_ESP)) {
         IS_ESP = !IS_ESP;
         if IS_ESP {
@@ -103,7 +103,7 @@ pub unsafe fn on_frame(ui: &imgui::Ui) {
 
 
 
-pub static mut fonts_storage: Option<FontIDs> = Some(FontIDs {
+static mut FONTS_STORAGE: Option<FontIDs> = Some(FontIDs {
     small: unsafe {mem::zeroed()},
     normal: unsafe {mem::zeroed()},
     big: unsafe { mem::zeroed() }
@@ -133,30 +133,7 @@ unsafe impl Send for FontIDs {}
 
 unsafe impl Sync for FontIDs {}
 
-unsafe fn init_fonts(_ctx: &mut Context)
-{
-    let fonts = _ctx.fonts();
-    fonts_storage = Some(FontIDs {
-        small:fonts.add_font(
-            &[FontSource::TtfData {
-                data: &crate::clash_font::clash,
-                size_pixels: 11.,
-                config: None,
-            }]),
-        normal: fonts.add_font(
-            &[FontSource::TtfData {
-                data: &crate::clash_font::clash,
-                size_pixels: 18.,
-                config: None,
-            }]),
-        big:fonts.add_font(
-            &[FontSource::TtfData {
-                data: &crate::clash_font::clash,
-                size_pixels: 24.,
-                config: None,
-            }]),
-    });
-}
+
 impl hudhook::ImguiRenderLoop for RenderLoop {
 
     fn initialize<'a>(&'a mut self, _ctx: &mut Context,
@@ -204,13 +181,12 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
         unsafe {
             if IS_SHOW_UI
             {
-                MessageFilter::InputAll | MessageFilter::WindowFocus
+                MessageFilter::InputAll |  // Filter any input that being sent in-game
+                MessageFilter::WindowFocus // Filter game cursor midpoint window focus
             } else {
-                MessageFilter::WindowFocus
+                MessageFilter::WindowFocus // Filter game cursor midpoint window focus
             }
         }
-        //MessageFilter::WindowFocus // Filter game cursor midpoint window focus
-        //MessageFilter::InputAll
     }
 
 
@@ -218,12 +194,13 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
 
         unsafe {
             if !IS_SHOW_UI {
+                ui.set_mouse_cursor(None);
                 return;
             }
-
+            ui.set_mouse_cursor(Some(imgui::MouseCursor::Arrow));
 
                 let width = ui.io().display_size[0];
-                let font_id = fonts_storage.as_mut()
+                let font_id = FONTS_STORAGE.as_mut()
                     .map(|fonts| {
                         if width > 2000. {
                             fonts.big
@@ -331,4 +308,29 @@ unsafe fn hotkey_handler()
             println!("Function pointer to set_brightness is null!");
         }
     }
+}
+
+unsafe fn init_fonts(_ctx: &mut Context)
+{
+    let fonts = _ctx.fonts();
+    FONTS_STORAGE = Some(FontIDs {
+        small:fonts.add_font(
+            &[FontSource::TtfData {
+                data: &crate::clash_font::CLASH,
+                size_pixels: 11.,
+                config: None,
+            }]),
+        normal: fonts.add_font(
+            &[FontSource::TtfData {
+                data: &crate::clash_font::CLASH,
+                size_pixels: 18.,
+                config: None,
+            }]),
+        big:fonts.add_font(
+            &[FontSource::TtfData {
+                data: &crate::clash_font::CLASH,
+                size_pixels: 24.,
+                config: None,
+            }]),
+    });
 }
