@@ -8,6 +8,7 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 use windows::Win32::System::Threading::Sleep;
 
 use crate::esp::esp_entrypoint;
+use crate::settings::load_app_settings;
 use crate::ui::RenderLoop;
 use crate::utils::setup_tracing;
 use crate::vars::handles::{CHEAT_DLL_HMODULE, OPENGL32_DLL_HMODULE};
@@ -17,7 +18,6 @@ use crate::vars::handles::{CHEAT_DLL_HMODULE, OPENGL32_DLL_HMODULE};
 pub extern "system" fn MainThread(lpReserved: *mut c_void) -> u32 {
     unsafe {
         setup_tracing();
-
         let module_name = CString::new("OPENGL32.dll").unwrap();
         let swapbuffers_name = CString::new("wglSwapBuffers").unwrap();
         let module_name_pcstr = PCSTR(module_name.as_ptr() as *const u8);

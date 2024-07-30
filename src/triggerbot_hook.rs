@@ -1,5 +1,7 @@
-use std::{mem, thread};
+use std::thread;
 use std::ptr::null_mut;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::Ordering::SeqCst;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -14,72 +16,109 @@ use crate::vars::game_vars::{CURRENT_CROSSHAIR_ENTITY_ADDR, LOCAL_PLAYER, TRIGGE
 use crate::vars::hooks::TRIGGERBOT_HOOK;
 use crate::vars::ui_vars::IS_TRIGGERBOT;
 
+// Define a constant for the pattern mask
+const TRIGGER_BOT_PATTERN_MASK: &str = "83 ? ? 89 ? ? ? 8B ? 83 3D";
+
 // The function to be hooked
 #[inline(never)]
 pub(crate) unsafe extern "cdecl" fn get_crosshair_entity(
     reg: *mut Registers,
     _: usize
 ) {
-    if IS_TRIGGERBOT
-    {
-        let mut input: INPUT = mem::zeroed();
-        input.r#type = INPUT_MOUSE; // Set the type to INPUT_MOUSE
-        input.Anonymous.mi.dx = 0; // Mouse movement in X (0 for no movement)
-        input.Anonymous.mi.dy = 0; // Mouse movement in Y (0 for no movement)
-        input.Anonymous.mi.mouseData = 0; // Additional data (not used)
-        input.Anonymous.mi.dwFlags = MOUSE_EVENT_FLAGS(0); // No flags initially
-        input.Anonymous.mi.time = 0; // Use default time
-        input.Anonymous.mi.dwExtraInfo = 0; // No extra info
-
-        CURRENT_CROSSHAIR_ENTITY_ADDR = (*reg).eax as *mut usize;
-        let ent = Entity::from_addr(CURRENT_CROSSHAIR_ENTITY_ADDR as usize);
-        if CURRENT_CROSSHAIR_ENTITY_ADDR != null_mut() &&
-            ent.team() != LOCAL_PLAYER.team() && // Enemy
-            ent.health() > 0 // Alive
-        {
-            thread::spawn(move || {
-                // Mouse button press
-                input.Anonymous.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-                let mouse_press = SendInput(&[input], mem::size_of::<INPUT>() as i32);
-                if mouse_press == 0 {
-                    let error_code = GetLastError();
-                    println!("Mouse button press failed with error code: {:?}", error_code);
+    unsafe {
+        if IS_TRIGGERBOT.load(SeqCst) {
+            if let Some(reg_val) = reg.as_ref() {
+                if reg_val.eax == 0
+                {
+                    return;
+                }
+                CURRENT_CROSSHAIR_ENTITY_ADDR = reg_val.eax as *mut usize;
+                if CURRENT_CROSSHAIR_ENTITY_ADDR == null_mut() {
+                    return;
                 }
 
-                sleep(Duration::from_millis(100));
+                // Get local player's team, handling potential errors
+                let local_player_team = match LOCAL_PLAYER.team() {
+                    Ok(team) => team,
+                    Err(err) => {
+                        eprintln!("Error reading local player team: {}", err);
+                        return;
+                    }
+                };
 
-                // Mouse button release
-                input.Anonymous.mi.dwFlags = MOUSEEVENTF_LEFTUP;
-                let mouse_release = SendInput(&[input], mem::size_of::<INPUT>() as i32);
-                if mouse_release == 0 {
-                    let error_code = GetLastError();
-                    println!("Mouse button release failed with error code: {:?}", error_code);
+                // Safely check entity conditions using match expressions
+                match (CURRENT_CROSSHAIR_ENTITY_ADDR as usize, Entity::from_addr(CURRENT_CROSSHAIR_ENTITY_ADDR as usize)) {
+                    (addr, ent) if addr != 0 => {
+                        match (ent.team(), ent.health()) {
+                            (Ok(team), Ok(health)) if team != local_player_team && health > 0 => {
+                                trigger_bot();
+                            }
+                            (Err(err), _) | (_, Err(err)) => {
+                                eprintln!("Error reading entity data: {}", err);
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
                 }
-                sleep(Duration::from_millis(TRIGGER_DELAY as u64));
-            });
+            }
         }
     }
 }
+unsafe fn trigger_bot() {
+    let mut input: INPUT = INPUT::default();
+    input.r#type = INPUT_MOUSE;
+    input.Anonymous.mi.dx = 0;
+    input.Anonymous.mi.dy = 0;
+    input.Anonymous.mi.mouseData = 0;
+    input.Anonymous.mi.dwFlags = MOUSE_EVENT_FLAGS(0);
+    input.Anonymous.mi.time = 0;
+    input.Anonymous.mi.dwExtraInfo = 0;
+
+    // Use a mutex to synchronize access to the input variable
+    let input_mutex = Arc::new(Mutex::new(input));
 
 
-/*83 ? ? 89 ? ? ? 8B ? 83 3D*/
+    thread::spawn(move || unsafe {
+        // Mouse button press
+        {
+            let mut input = input_mutex.lock().unwrap();
+            input.Anonymous.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+            send_mouse_input(&input);
+        }
+
+        sleep(Duration::from_millis(100));
+
+        // Mouse button release
+        {
+            let mut input = input_mutex.lock().unwrap();
+            input.Anonymous.mi.dwFlags = MOUSEEVENTF_LEFTUP;
+            send_mouse_input(&input);
+        }
+
+        sleep(Duration::from_millis(TRIGGER_DELAY.load(SeqCst) as u64));
+    });
+}
+
+// Helper function to send mouse input and handle errors
+fn send_mouse_input(input: &INPUT) {
+    let result = unsafe { SendInput(&[*input], size_of::<INPUT>() as i32) };
+    if result == 0 {
+        let error_code = unsafe { GetLastError() };
+        eprintln!("Mouse input failed with error code: {:?}", error_code);
+    }
+}
+
 // Example of finding a pattern and setting up the hook
 pub fn setup_trigger_bot() {
-    unsafe {
-        thread::spawn(||
-        {
-            let pattern_mask = PatternMask::aob_to_pattern_mask(
-                "83 ? ? 89 ? ? ? 8B ? 83 3D"
-            );
+    thread::spawn(|| {
+        let pattern_mask = PatternMask::aob_to_pattern_mask(TRIGGER_BOT_PATTERN_MASK);
+        println!("[TriggerBotHook] {:#x}", &pattern_mask);
 
-            println!("[TriggerBotHook] {:#x}", &pattern_mask);
-            let trigger_bot_aob = find_pattern("ac_client.exe",
-                                               &*pattern_mask.aob_pattern,
-                                               &pattern_mask.mask_to_string());
-/*                                               &[0x83, 0xC4, 0x10, 0x89, 0x44, 0x24, 0x10, 0x8B],
-                                               "xxxxxxxx");*/
+        let trigger_bot_aob = find_pattern("ac_client.exe", &*pattern_mask.aob_pattern, &pattern_mask.mask_to_string());
 
-            if let Some(addr) = trigger_bot_aob {
+        match trigger_bot_aob {
+            Some(addr) => unsafe {
                 println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot pattern found at: {:#x}", addr);
                 let hooker = Hooker::new(
                     addr,
@@ -96,12 +135,13 @@ pub fn setup_trigger_bot() {
                         println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook succeeded!");
                     }
                     Err(e) => {
-                        println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook failed: {:?}", e);
+                        eprintln!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook failed: {:?}", e);
                     }
                 }
-            } else {
+            }
+            None => {
                 println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot pattern not found");
             }
-        });
-    }
+        }
+    });
 }
