@@ -30,11 +30,13 @@ pub unsafe fn init_mem_patches()
         }
 
         //83 EC 28 -> C2 08 00
+        unsafe {
         NO_RECOIL_MEMORY_PATCH = MemoryPatch::new(
             &[0xC2, 0x08, 0x00], // return 0008
             0x03,
             no_recoil_res as *mut c_void,
             3usize).expect("Failed to patch No Recoil");
+        }
     });
 
     thread::spawn(||
@@ -59,11 +61,13 @@ pub unsafe fn init_mem_patches()
         }
 
         //89 08 -> 90 90
+        unsafe {
         RAPID_FIRE_MEMORY_PATCH = MemoryPatch::new(
             &[0x90, 0x90],  // nop nop
             0x02,
             rapid_fire_res as *mut c_void,
             2usize).expect("Failed to patch Rapid Fire");
+        }
     });
     thread::spawn(||
     {
@@ -86,11 +90,13 @@ pub unsafe fn init_mem_patches()
         else {
             println!("[esp] maphack pattern not found");
         }
+        unsafe {
         MAPHACK_MEMORY_PATCH = MemoryPatch::new(
             &[0x90, 0x90],
             0x02,
             map_res as *mut c_void,
             2usize).expect("Failed to patch map");
+        }
     });
     setup_trigger_bot();
     setup_invul();

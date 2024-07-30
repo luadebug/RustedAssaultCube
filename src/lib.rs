@@ -32,9 +32,13 @@ mod aimbot;
 mod misc;
 mod triggerbot_hook;
 mod game;
-mod clash_font;
+//mod fonts;
 mod get_local_player_hook;
 mod pattern_mask;
+mod hotkey_widget;
+mod settings;
+mod state;
+mod fonts;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]

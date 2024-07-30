@@ -15,7 +15,7 @@ use windows::core::PCSTR;
 use windows::Win32::Foundation::GetLastError;
 use windows::Win32::System::Console::{AllocConsole, FreeConsole};
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
-use windows::Win32::System::Memory::{PAGE_PROTECTION_FLAGS, PAGE_READWRITE, VirtualProtect};
+use windows::Win32::System::Memory::{MEMORY_BASIC_INFORMATION, PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_NOACCESS, PAGE_PROTECTION_FLAGS, PAGE_READONLY, PAGE_READWRITE, VirtualProtect, VirtualQuery};
 use windows::Win32::System::ProcessStatus::{GetModuleInformation, MODULEINFO};
 use windows::Win32::System::Threading::{CREATE_NO_WINDOW, GetCurrentProcess};
 
@@ -133,7 +133,7 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
 }
 
 
-pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usize) -> bool {
+/*pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usize) -> bool {
     let mut old_protect = PAGE_PROTECTION_FLAGS(0);
 
     // Change the memory protection to PAGE_READWRITE
@@ -151,7 +151,232 @@ pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usi
     }
 
     true // Indicate success
+}*/
+
+
+
+pub unsafe fn write_memory<T>(address: usize, value: T) -> Result<(), String> {
+    unsafe {
+        // Create a MEMORY_BASIC_INFORMATION structure to hold the memory info
+        let mut mbi: MEMORY_BASIC_INFORMATION = std::mem::zeroed();
+
+        // Variable to hold the old protection flags
+        let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
+
+        // Query the memory information at the specified address
+        if VirtualQuery(Option::from(address as *const c_void), &mut mbi, size_of::<MEMORY_BASIC_INFORMATION>()) == 0 {
+            return Err(format!("Failed to query memory information at {:x}", address));
+        }
+
+        // Check the current protection flags
+        let current_protect = mbi.Protect;
+
+        // Determine if the memory is writable
+        let is_writable = (current_protect &
+            (PAGE_READWRITE | PAGE_EXECUTE_READWRITE)) !=
+            PAGE_NOACCESS;
+
+        // If the memory is not writable, change the protection
+        if !is_writable {
+            let new_protect = if current_protect == PAGE_EXECUTE {
+                // If the current protection allows execution, change it to PAGE_EXECUTE_READ
+                PAGE_EXECUTE_READ
+            } else {
+                // If the protection is not readable or writable, fallback to PAGE_READWRITE
+                PAGE_READWRITE
+            };
+
+            // Change memory protection
+            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, new_protect, &mut old_protect).is_err() {
+                return Err(format!("Failed to change memory protection at {:x}", address));
+            }
+        }
+
+        // Write the value to the specified address
+        ptr::write_unaligned((address as *mut T).cast(), value);
+
+        // Restore the original memory protection if it was changed
+        if !is_writable {
+            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, old_protect, &mut old_protect).is_err() {
+                return Err(format!("Failed to restore memory protection at {:x}", address));
+            }
+        }
+
+        Ok(())
+    }
 }
+
+
+pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
+    unsafe {
+        // Determine the size of T
+        //let size_of_t = std::mem::size_of::<T>();
+
+        // Create a MEMORY_BASIC_INFORMATION structure to hold the memory info
+        let mut mbi: MEMORY_BASIC_INFORMATION = std::mem::zeroed();
+
+        // Variable to hold the old protection flags
+        let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
+
+        // Query the memory information at the specified address
+        if VirtualQuery(Option::from(address as *const c_void), &mut mbi, size_of::<MEMORY_BASIC_INFORMATION>()) == 0 {
+            return Err(format!("Failed to query memory information at {:x}", address));
+        }
+
+        // Check the current protection flags
+        let current_protect = mbi.Protect;
+
+        // Determine if the memory is readable
+        let is_readable = (current_protect &
+            (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE)) !=
+            PAGE_NOACCESS;
+
+        // If the memory is not readable, change the protection
+        if !is_readable {
+            let new_protect = if current_protect == PAGE_EXECUTE {
+                // If the current protection allows execution, change it to PAGE_EXECUTE_READ
+                PAGE_EXECUTE_READ
+            } else {
+                // If the protection is not readable or writable, fallback to PAGE_READWRITE
+                PAGE_READWRITE
+            };
+
+            // Change memory protection
+            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, new_protect, &mut old_protect).is_err() {
+                return Err(format!("Failed to change memory protection at {:x}", address));
+            }
+        }
+
+        // Read the value from the specified address
+        let value = ptr::read_unaligned((address as *const T).cast());
+
+        // Restore the original memory protection if it was changed
+        if !is_readable {
+            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, old_protect, &mut old_protect).is_err() {
+                return Err(format!("Failed to restore memory protection at {:x}", address));
+            }
+        }
+
+        Ok(value)
+    }
+}
+
+pub unsafe fn read_vector<T>(address: usize, len: usize) -> Result<Vec<T>, String> {
+    unsafe {
+        // Create a MEMORY_BASIC_INFORMATION structure to hold the memory info
+        let mut mbi: MEMORY_BASIC_INFORMATION = std::mem::zeroed();
+
+        // Variable to hold the old protection flags
+        let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
+
+        // Query the memory information at the specified address
+        if VirtualQuery(Option::from(address as *const c_void), &mut mbi, size_of::<MEMORY_BASIC_INFORMATION>()) == 0 {
+            return Err(format!("Failed to query memory information at {:x}", address));
+        }
+
+        // Check the current protection flags
+        let current_protect = mbi.Protect;
+
+        // Determine if the memory is readable
+        let is_readable = (current_protect &
+            (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE)) !=
+            PAGE_NOACCESS;
+
+        // If the memory is not readable, change the protection
+        if !is_readable {
+            let new_protect = if current_protect == PAGE_EXECUTE {
+                // If the current protection allows execution, change it to PAGE_EXECUTE_READ
+                PAGE_EXECUTE_READ
+            } else {
+                // If the protection is not readable or writable, fallback to PAGE_READWRITE
+                PAGE_READWRITE
+            };
+
+            // Change memory protection
+            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, new_protect, &mut old_protect).is_err() {
+                return Err(format!("Failed to change memory protection at {:x}", address));
+            }
+        }
+
+        // Create a vector to store the read values
+        let mut values: Vec<T> = Vec::with_capacity(len);
+
+        // Read each element of the vector
+        for i in 0..len {
+            let element_address = address + i * std::mem::size_of::<T>();
+            let value = ptr::read_unaligned((element_address as *const T).cast());
+            values.push(value);
+        }
+
+        // Restore the original memory protection if it was changed
+        if !is_readable {
+            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, old_protect, &mut old_protect).is_err() {
+                return Err(format!("Failed to restore memory protection at {:x}", address));
+            }
+        }
+
+        Ok(values)
+    }
+}
+
+pub unsafe fn read_view_matrix(address: usize) -> Result<[f32; 16], String> {
+    // Read the data into a Vec<f32> (same logic as before)
+    unsafe {
+        let vector: Vec<f32> = read_vector(address, 16)?;
+
+        // Try to convert the Vec<f32> into a [f32; 16]
+        let array: [f32; 16] = vector.try_into().unwrap(); // This will panic if vector.len() != 16
+
+        Ok(array)
+    }
+}
+
+
+/*pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
+    // Change memory protection to readable and executable if needed
+    let mut old_protect = PAGE_PROTECTION_FLAGS(0);
+    let size = std::mem::size_of::<T>();
+    if VirtualProtect(address as *mut c_void, size, PAGE_READWRITE, &mut old_protect).is_err() {
+        return Err(format!("Failed to change memory protection at {:x}", address));
+    }
+
+    // Read the value
+    let value = ptr::read_unaligned((address as *const T).cast());
+
+    // Restore original memory protection
+    if VirtualProtect(address as *mut c_void, size, old_protect, &mut old_protect).is_err() {
+        return Err(format!("Failed to restore memory protection at {:x}", address));
+    }
+
+    Ok(value)
+}*/
+
+pub unsafe fn read_memory_into_slice(address: usize, buffer: &mut [u8]) -> Result<(), String> {
+    let size = buffer.len();
+
+    // Change memory protection to readable and executable if needed
+    let mut old_protect = PAGE_PROTECTION_FLAGS(0);
+    unsafe {
+    if VirtualProtect(address as *mut c_void, size, PAGE_READWRITE, &mut old_protect).is_err() {
+        return Err(format!("Failed to change memory protection at {:x}", address));
+    }
+
+    // Copy the memory into the buffer
+    ptr::copy_nonoverlapping(address as *const u8, buffer.as_mut_ptr(), size);
+
+    // Restore original memory protection
+    if VirtualProtect(address as *mut c_void, size, old_protect, &mut old_protect).is_err() {
+        return Err(format!("Failed to restore memory protection at {:x}", address));
+    }
+    }
+    Ok(())
+}
+
+
+
+
+
+
 
 #[allow(unused)]
 pub fn open_console() {
@@ -198,14 +423,14 @@ pub unsafe fn setup_tracing() {
     let e = hudhook::alloc_console();
     if e.is_err()
     {
-        println!("[MainThread] Failed to allocate console: {:?}", GetLastError());
+        unsafe { println!("[MainThread] Failed to allocate console: {:?}", GetLastError()); }
     }
     else
     {
         println!("[MainThread] Allocated console");
     }
     hudhook::enable_console_colors();
-    std::env::set_var("RUST_LOG", "info"); //trace
+    unsafe {std::env::set_var("RUST_LOG", "info"); }//trace
 
     let log_file = hudhook::util::get_dll_path()
         .map(|mut path| {
