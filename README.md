@@ -12,3 +12,5 @@
 # Note it uses nightly rust version and game is supported only for x86
 # To build you need to make sure you installed freetype using vcpkg and run command line cargo build -vv --target=i686-pc-windows-msvc --release
 ![Preview](https://raw.githubusercontent.com/luadebug/RustedAssaultCube/main/Preview.png)
+![Preview2](https://raw.githubusercontent.com/luadebug/RustedAssaultCube/main/Preview2.png)
+![Preview3](https://raw.githubusercontent.com/luadebug/RustedAssaultCube/main/Preview3.png)
