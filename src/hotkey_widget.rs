@@ -1,21 +1,21 @@
+use std::collections::HashSet;
+
 use hudhook::imgui;
-use hudhook::imgui::{MouseButton, Window};
 use imgui::Key;
-
-
-
-
-
-
-
-
-
-use serde::{
-    de::Visitor,
-    Deserialize,
-    Serialize,
+use serde::{de::Visitor, Deserialize, Serialize};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    VK__none_, VIRTUAL_KEY, VK_0, VK_1, VK_2, VK_3, VK_4, VK_5, VK_6, VK_7, VK_8, VK_9, VK_A,
+    VK_ADD, VK_APPS, VK_B, VK_BACK, VK_C, VK_CAPITAL, VK_CONTROL, VK_D, VK_DECIMAL, VK_DELETE,
+    VK_DIVIDE, VK_DOWN, VK_E, VK_END, VK_ESCAPE, VK_F, VK_F1, VK_F10, VK_F11, VK_F12, VK_F2, VK_F3,
+    VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_G, VK_H, VK_HOME, VK_I, VK_INSERT, VK_J, VK_K,
+    VK_L, VK_LCONTROL, VK_LEFT, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_M, VK_MENU, VK_MULTIPLY, VK_N,
+    VK_NEXT, VK_NUMLOCK, VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5,
+    VK_NUMPAD6, VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_O, VK_OEM_1, VK_OEM_2, VK_OEM_3, VK_OEM_4,
+    VK_OEM_5, VK_OEM_6, VK_OEM_7, VK_OEM_COMMA, VK_OEM_MINUS, VK_OEM_PERIOD, VK_OEM_PLUS, VK_P,
+    VK_PAUSE, VK_PRIOR, VK_Q, VK_R, VK_RCONTROL, VK_RETURN, VK_RIGHT, VK_RMENU, VK_RSHIFT, VK_RWIN,
+    VK_S, VK_SCROLL, VK_SNAPSHOT, VK_SPACE, VK_SUBTRACT, VK_T, VK_TAB, VK_U, VK_UP, VK_V, VK_W,
+    VK_X, VK_Y, VK_Z,
 };
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VIRTUAL_KEY, VK_0, VK_1, VK_2, VK_3, VK_4, VK_5, VK_6, VK_7, VK_8, VK_9, VK__none_, VK_A, VK_ADD, VK_APPS, VK_B, VK_BACK, VK_C, VK_CAPITAL, VK_CONTROL, VK_D, VK_DECIMAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_E, VK_END, VK_ESCAPE, VK_F, VK_F1, VK_F10, VK_F11, VK_F12, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_G, VK_H, VK_HOME, VK_I, VK_INSERT, VK_J, VK_K, VK_L, VK_LCONTROL, VK_LEFT, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_M, VK_MENU, VK_MULTIPLY, VK_N, VK_NEXT, VK_NUMLOCK, VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_O, VK_OEM_1, VK_OEM_2, VK_OEM_3, VK_OEM_4, VK_OEM_5, VK_OEM_6, VK_OEM_7, VK_OEM_COMMA, VK_OEM_MINUS, VK_OEM_PERIOD, VK_OEM_PLUS, VK_P, VK_PAUSE, VK_PRIOR, VK_Q, VK_R, VK_RCONTROL, VK_RETURN, VK_RIGHT, VK_RMENU, VK_RSHIFT, VK_RWIN, VK_S, VK_SCROLL, VK_SHIFT, VK_SNAPSHOT, VK_SPACE, VK_SUBTRACT, VK_T, VK_TAB, VK_U, VK_UP, VK_V, VK_W, VK_X, VK_Y, VK_Z};
 
 #[derive(Clone, Debug)]
 pub struct HotKey {
@@ -112,7 +112,6 @@ impl From<u16> for HotKey {
     }
 }
 
-
 impl Serialize for HotKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -154,17 +153,6 @@ impl<'de> Deserialize<'de> for HotKey {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
 pub trait ImguiUiEx {
     fn set_cursor_pos_x(&self, pos: f32);
     fn set_cursor_pos_y(&self, pos: f32);
@@ -181,12 +169,19 @@ impl ImguiUiEx for imgui::Ui {
 }
 
 pub trait ImGuiKey {
-/*    fn button_key(&self, label: &str, key: &mut HotKey, size: [f32; 2]) -> bool;*/
-    fn button_key_optional(&self, label: &str, key: &mut Option<HotKey>, size: [f32; 2], backup_key: &Option<HotKey>) -> bool;
+    /*    fn button_key(&self, label: &str, key: &mut HotKey, size: [f32; 2]) -> bool;*/
+    fn button_key_optional(
+        &self,
+        label: &str,
+        key: &mut Option<HotKey>,
+        size: [f32; 2],
+        backup_key: &Option<HotKey>,
+        key_table: HashSet<&Key>,
+    ) -> bool;
 }
 
 impl ImGuiKey for imgui::Ui {
-/*    fn button_key(&self, label: &str, key: &mut HotKey, size: [f32; 2]) -> bool {
+    /*    fn button_key(&self, label: &str, key: &mut HotKey, size: [f32; 2]) -> bool {
         let mut key_opt = Some(key.clone());
         if render_button_key(self, label, &mut key_opt, size, false) {
             *key = key_opt.unwrap();
@@ -196,89 +191,93 @@ impl ImGuiKey for imgui::Ui {
         }
     }*/
 
-    fn button_key_optional(&self, label: &str, key: &mut Option<HotKey>, size: [f32; 2], backup_key: &Option<HotKey>) -> bool {
-        render_button_key(self, label, key, size, true, backup_key)
-    }
-}
-
-
-
-
-    pub fn render_button_key(
-        ui: &imgui::Ui,
+    fn button_key_optional(
+        &self,
         label: &str,
         key: &mut Option<HotKey>,
         size: [f32; 2],
-        optional: bool,
-        backup_key: &Option<HotKey> 
+        backup_key: &Option<HotKey>,
+        key_table: HashSet<&Key>,
     ) -> bool {
-        
-        
-        let _container = ui.push_id(label);
+        render_button_key(self, label, key, size, true, backup_key, key_table)
+    }
+}
 
-        let button_label = if let Some(key) = &key {
-            format!("{:?}", key.key)
-        } else {
-            "None".to_string()
-        };
+pub fn render_button_key(
+    ui: &imgui::Ui,
+    label: &str,
+    key: &mut Option<HotKey>,
+    size: [f32; 2],
+    optional: bool,
+    backup_key: &Option<HotKey>,
+    key_table: HashSet<&Key>,
+) -> bool {
+    let _container = ui.push_id(label);
 
-/*        if !label.starts_with("##") {
-            ui.text(label);
-            ui.same_line();
-        }*/
+    let button_label = if let Some(key) = &key {
+        format!("{:?}", key.key)
+    } else {
+        "None".to_string()
+    };
 
-        let mut updated = false;
-        if optional {
-            if ui.button_with_size(&button_label, [size[0] - 35.0, size[1]]) {
-                ui.open_popup(label);
-            }
+    /*        if !label.starts_with("##") {
+        ui.text(label);
+        ui.same_line();
+    }*/
 
-            ui.same_line_with_spacing(0.0, 10.0);
-
-            ui.disabled(key.is_none(), || {
-                if ui.button_with_size("X", [25.0, 0.0]) {
-                    updated = true;
-                    *key = backup_key.clone();
-                    //*key = None;
-                }
-            });
-        } else {
-            if ui.button_with_size(&button_label, size) {
-                ui.open_popup(label);
-            }
+    let mut updated = false;
+    if optional {
+        if ui.button_with_size(&button_label, [size[0] - 35.0, size[1]]) {
+            ui.open_popup(label);
         }
 
-        ui.modal_popup_config(label)
-            .inputs(true)
-            .collapsible(true)
-            .movable(false)
-            .menu_bar(false)
-            .resizable(false)
-            .title_bar(false)
-            .build(|| {
-                ui.text("Press any key or ESC to exit");
+        ui.same_line_with_spacing(0.0, 10.0);
 
-                if ui.is_key_pressed(Key::Escape) {
-                    ui.close_current_popup();
-                } else {
-                    for key_variant in Key::VARIANTS {
-                        if ui.is_key_pressed(key_variant) {
+        ui.disabled(key.is_none(), || {
+            if ui.button_with_size("X", [25.0, 0.0]) {
+                updated = true;
+
+                *key = backup_key.clone();
+
+                //*key = None;
+            }
+        });
+    } else {
+        if ui.button_with_size(&button_label, size) {
+            ui.open_popup(label);
+        }
+    }
+
+    ui.modal_popup_config(label)
+        .inputs(true)
+        .collapsible(true)
+        .movable(false)
+        .menu_bar(false)
+        .resizable(false)
+        .title_bar(false)
+        .build(|| {
+            ui.text("Press any key or ESC to exit");
+            if ui.is_key_pressed(Key::Escape) {
+                ui.close_current_popup();
+            } else {
+                for key_variant in Key::VARIANTS {
+                    if ui.is_key_pressed(key_variant) {
+                        if key_table.contains(&key_variant) {
+                            ui.close_current_popup();
+                        } else {
                             *key = Some(HotKey { key: key_variant });
                             updated = true;
                             ui.close_current_popup();
                         }
                     }
                 }
-            });
+            }
+        });
 
-        updated
-    }
-
-
+    updated
+}
 
 const VK_KEY_MAX: usize = 256;
-
-
 
 pub fn to_imgui_key(keycode: VIRTUAL_KEY) -> Option<Key> {
     use windows::Win32::UI::Input::KeyboardAndMouse::*;

@@ -1,4 +1,6 @@
-use std::arch::x86::{_mm_cvtss_f32, _mm_hadd_ps, _mm_mul_ps, _mm_set_ps, _mm_set_ss, _mm_sqrt_ss, _mm_sub_ps};
+use std::arch::x86::{
+    _mm_cvtss_f32, _mm_hadd_ps, _mm_mul_ps, _mm_set_ps, _mm_set_ss, _mm_sqrt_ss, _mm_sub_ps,
+};
 
 use crate::vec_structures::{Vec2, Vec3};
 

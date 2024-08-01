@@ -1,38 +1,39 @@
 use std::sync::atomic::Ordering::SeqCst;
-use hudhook::imgui::Key;
+
 use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
 
 use crate::angle::Angle;
 use crate::entity::Entity;
 use crate::getclosestentity::get_closest_entity;
-use crate::hotkey_widget::{HotKey, to_win_key};
+use crate::hotkey_widget::to_win_key;
 use crate::offsets::offsets::{LOCAL_PLAYER_OFFSET, PITCH_OFFSET, YAW_OFFSET};
+use crate::settings::AppSettings;
 use crate::utils::{read_memory, write_memory};
 use crate::vars::game_vars::{LOCAL_PLAYER, SMOOTH};
 use crate::vars::handles::AC_CLIENT_EXE_HMODULE;
-
 use crate::vars::ui_vars::{IS_AIMBOT, IS_SMOOTH};
 use crate::vec_structures::Vec3;
-use crate::settings::AppSettings;
-pub unsafe fn aimbot(app_settings: &AppSettings)
-{
+
+pub unsafe fn aimbot(app_settings: &AppSettings) {
     unsafe {
-        if !IS_AIMBOT.load(SeqCst)
-        {
+        if !IS_AIMBOT.load(SeqCst) {
             return;
         }
 
-        let local_player_addr = match read_memory::<usize>(AC_CLIENT_EXE_HMODULE + LOCAL_PLAYER_OFFSET) {
-            Ok(addr) => addr,
-            Err(err) => {
-                println!("Error reading local player address: {}", err);
-                return;
-            }
-        };
+        let local_player_addr =
+            match read_memory::<usize>(AC_CLIENT_EXE_HMODULE + LOCAL_PLAYER_OFFSET) {
+                Ok(addr) => addr,
+                Err(err) => {
+                    println!("Error reading local player address: {}", err);
+                    return;
+                }
+            };
 
         LOCAL_PLAYER = Entity::from_addr(local_player_addr);
 
-        if GetAsyncKeyState(to_win_key(app_settings.AIM_KEY.as_ref().unwrap().key).0 as i32) & 1 == 1 {
+        if GetAsyncKeyState(to_win_key(app_settings.aim_key.as_ref().unwrap().key).0 as i32) & 1
+            == 1
+        {
             let enemy = get_closest_entity();
             if LOCAL_PLAYER.entity_starts_at_addr == 0 || enemy.entity_starts_at_addr == 0 {
                 return; // Didn't find player or enemy
@@ -74,7 +75,10 @@ pub unsafe fn aimbot(app_settings: &AppSettings)
                         // Only write if the value is different to avoid unnecessary writes
                         if current_value != value {
                             if let Err(err) = write_memory::<f32>(address, value) {
-                                println!("Error writing to address {:x} storing value {}: {}", address, current_value, err);
+                                println!(
+                                    "Error writing to address {:x} storing value {}: {}",
+                                    address, current_value, err
+                                );
                             }
                         }
                     }
@@ -85,17 +89,18 @@ pub unsafe fn aimbot(app_settings: &AppSettings)
             };
 
             // Read yaw and pitch with error handling
-            let (local_player_yaw, local_player_pitch) = match (LOCAL_PLAYER.yaw(), LOCAL_PLAYER.pitch()) {
-                (Ok(y), Ok(p)) => (y as f32, p as f32),
-                (Err(err), _) => {
-                    println!("Error reading yaw: {}", err);
-                    return;
-                }
-                (_, Err(err)) => {
-                    println!("Error reading pitch: {}", err);
-                    return;
-                }
-            };
+            let (local_player_yaw, local_player_pitch) =
+                match (LOCAL_PLAYER.yaw(), LOCAL_PLAYER.pitch()) {
+                    (Ok(y), Ok(p)) => (y as f32, p as f32),
+                    (Err(err), _) => {
+                        println!("Error reading yaw: {}", err);
+                        return;
+                    }
+                    (_, Err(err)) => {
+                        println!("Error reading pitch: {}", err);
+                        return;
+                    }
+                };
 
             // Calculate the angle difference
             let angle_diff_yaw = angle.yaw - local_player_yaw;

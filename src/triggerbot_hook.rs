@@ -1,13 +1,15 @@
-use std::thread;
 use std::ptr::null_mut;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
-use ilhook::x86::{CallbackOption, Hooker, HookFlags, HookType, Registers};
+use ilhook::x86::{CallbackOption, HookFlags, HookType, Hooker, Registers};
 use windows::Win32::Foundation::GetLastError;
-use windows::Win32::UI::Input::KeyboardAndMouse::{INPUT, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, SendInput};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSE_EVENT_FLAGS,
+};
 
 use crate::entity::Entity;
 use crate::pattern_mask::PatternMask;
@@ -21,15 +23,11 @@ const TRIGGER_BOT_PATTERN_MASK: &str = "83 ? ? 89 ? ? ? 8B ? 83 3D";
 
 // The function to be hooked
 #[inline(never)]
-pub(crate) unsafe extern "cdecl" fn get_crosshair_entity(
-    reg: *mut Registers,
-    _: usize
-) {
+pub(crate) unsafe extern "cdecl" fn get_crosshair_entity(reg: *mut Registers, _: usize) {
     unsafe {
         if IS_TRIGGERBOT.load(SeqCst) {
             if let Some(reg_val) = reg.as_ref() {
-                if reg_val.eax == 0
-                {
+                if reg_val.eax == 0 {
                     return;
                 }
                 CURRENT_CROSSHAIR_ENTITY_ADDR = reg_val.eax as *mut usize;
@@ -47,18 +45,19 @@ pub(crate) unsafe extern "cdecl" fn get_crosshair_entity(
                 };
 
                 // Safely check entity conditions using match expressions
-                match (CURRENT_CROSSHAIR_ENTITY_ADDR as usize, Entity::from_addr(CURRENT_CROSSHAIR_ENTITY_ADDR as usize)) {
-                    (addr, ent) if addr != 0 => {
-                        match (ent.team(), ent.health()) {
-                            (Ok(team), Ok(health)) if team != local_player_team && health > 0 => {
-                                trigger_bot();
-                            }
-                            (Err(err), _) | (_, Err(err)) => {
-                                eprintln!("Error reading entity data: {}", err);
-                            }
-                            _ => {}
+                match (
+                    CURRENT_CROSSHAIR_ENTITY_ADDR as usize,
+                    Entity::from_addr(CURRENT_CROSSHAIR_ENTITY_ADDR as usize),
+                ) {
+                    (addr, ent) if addr != 0 => match (ent.team(), ent.health()) {
+                        (Ok(team), Ok(health)) if team != local_player_team && health > 0 => {
+                            trigger_bot();
                         }
-                    }
+                        (Err(err), _) | (_, Err(err)) => {
+                            eprintln!("Error reading entity data: {}", err);
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 }
             }
@@ -77,7 +76,6 @@ unsafe fn trigger_bot() {
 
     // Use a mutex to synchronize access to the input variable
     let input_mutex = Arc::new(Mutex::new(input));
-
 
     thread::spawn(move || unsafe {
         // Mouse button press
@@ -115,11 +113,18 @@ pub fn setup_trigger_bot() {
         let pattern_mask = PatternMask::aob_to_pattern_mask(TRIGGER_BOT_PATTERN_MASK);
         println!("[TriggerBotHook] {:#x}", &pattern_mask);
 
-        let trigger_bot_aob = find_pattern("ac_client.exe", &*pattern_mask.aob_pattern, &pattern_mask.mask_to_string());
+        let trigger_bot_aob = find_pattern(
+            "ac_client.exe",
+            &*pattern_mask.aob_pattern,
+            &pattern_mask.mask_to_string(),
+        );
 
         match trigger_bot_aob {
             Some(addr) => unsafe {
-                println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot pattern found at: {:#x}", addr);
+                println!(
+                    "[triggerbot_hook.rs->setup_trigger_bot] trigger bot pattern found at: {:#x}",
+                    addr
+                );
                 let hooker = Hooker::new(
                     addr,
                     HookType::JmpBack(get_crosshair_entity),
@@ -132,13 +137,18 @@ pub fn setup_trigger_bot() {
                 match hook_res {
                     Ok(trampoline_hook) => {
                         *TRIGGERBOT_HOOK.lock().unwrap() = Some(trampoline_hook);
-                        println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook succeeded!");
+                        println!(
+                            "[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook succeeded!"
+                        );
                     }
                     Err(e) => {
-                        eprintln!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook failed: {:?}", e);
+                        eprintln!(
+                            "[triggerbot_hook.rs->setup_trigger_bot] trigger bot hook failed: {:?}",
+                            e
+                        );
                     }
                 }
-            }
+            },
             None => {
                 println!("[triggerbot_hook.rs->setup_trigger_bot] trigger bot pattern not found");
             }

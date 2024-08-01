@@ -8,16 +8,19 @@ use std::ptr;
 use std::ptr::null_mut;
 use std::sync::Mutex;
 
-use tracing_subscriber::{EnvFilter, fmt, Layer};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{fmt, EnvFilter, Layer};
 use windows::core::PCSTR;
 use windows::Win32::Foundation::GetLastError;
 use windows::Win32::System::Console::{AllocConsole, FreeConsole};
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
-use windows::Win32::System::Memory::{MEMORY_BASIC_INFORMATION, PAGE_EXECUTE, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_NOACCESS, PAGE_PROTECTION_FLAGS, PAGE_READONLY, PAGE_READWRITE, VirtualProtect, VirtualQuery};
+use windows::Win32::System::Memory::{
+    VirtualProtect, VirtualQuery, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE, PAGE_EXECUTE_READ,
+    PAGE_EXECUTE_READWRITE, PAGE_NOACCESS, PAGE_PROTECTION_FLAGS, PAGE_READONLY, PAGE_READWRITE,
+};
 use windows::Win32::System::ProcessStatus::{GetModuleInformation, MODULEINFO};
-use windows::Win32::System::Threading::{CREATE_NO_WINDOW, GetCurrentProcess};
+use windows::Win32::System::Threading::{GetCurrentProcess, CREATE_NO_WINDOW};
 
 pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
     let module_name = CString::new(module).unwrap();
@@ -43,7 +46,8 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
             hmodule.unwrap(),
             &mut module_info,
             size_of::<MODULEINFO>() as u32,
-        ).is_err()
+        )
+        .is_err()
         {
             println!("[utils] Failed to get module information");
             return None;
@@ -73,7 +77,8 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
     }
 
     for i in (0..last_valid_byte_index).rev() {
-        if mask_bytes[i] == b'x' { // Only consider non-wildcard bytes for the skip table
+        if mask_bytes[i] == b'x' {
+            // Only consider non-wildcard bytes for the skip table
             skip_table[pattern[i] as usize] = last_valid_byte_index - i;
         }
     }
@@ -96,7 +101,8 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
         }
 
         // Move to the next position using the skip table (modified)
-        if i < module_end - module_base { // Prevent potential out-of-bounds access
+        if i < module_end - module_base {
+            // Prevent potential out-of-bounds access
             let current_byte = unsafe { *(module_base as *const u8).add(i) };
             i += skip_table[current_byte as usize];
         } else {
@@ -104,14 +110,15 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
         }
     }
 
-
-
     let mut i = 0; // Start from the beginning of the module
 
-    while i < module_end - module_base - pattern_length { // Adjusted loop condition
+    while i < module_end - module_base - pattern_length {
+        // Adjusted loop condition
         let mut matched = true;
         for j in 0..pattern_length {
-            if mask_bytes[j] == b'x' && pattern[j] != unsafe { *(module_base as *const u8).add(i + j) } {
+            if mask_bytes[j] == b'x'
+                && pattern[j] != unsafe { *(module_base as *const u8).add(i + j) }
+            {
                 matched = false;
                 break;
             }
@@ -124,14 +131,12 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
         i += 1; // Move to the next byte in the module
     }
 
-
-
-
-
-    println!("[utils] Pattern {:?} with mask {} was not found in {} module", pattern, mask, module);
+    println!(
+        "[utils] Pattern {:?} with mask {} was not found in {} module",
+        pattern, mask, module
+    );
     None
 }
-
 
 /*pub unsafe fn read_memory(address: *const c_void, buffer: *mut c_void, size: usize) -> bool {
     let mut old_protect = PAGE_PROTECTION_FLAGS(0);
@@ -153,8 +158,6 @@ pub fn find_pattern(module: &str, pattern: &[u8], mask: &str) -> Option<usize> {
     true // Indicate success
 }*/
 
-
-
 pub unsafe fn write_memory<T>(address: usize, value: T) -> Result<(), String> {
     unsafe {
         // Create a MEMORY_BASIC_INFORMATION structure to hold the memory info
@@ -164,17 +167,24 @@ pub unsafe fn write_memory<T>(address: usize, value: T) -> Result<(), String> {
         let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
 
         // Query the memory information at the specified address
-        if VirtualQuery(Option::from(address as *const c_void), &mut mbi, size_of::<MEMORY_BASIC_INFORMATION>()) == 0 {
-            return Err(format!("Failed to query memory information at {:x}", address));
+        if VirtualQuery(
+            Option::from(address as *const c_void),
+            &mut mbi,
+            size_of::<MEMORY_BASIC_INFORMATION>(),
+        ) == 0
+        {
+            return Err(format!(
+                "Failed to query memory information at {:x}",
+                address
+            ));
         }
 
         // Check the current protection flags
         let current_protect = mbi.Protect;
 
         // Determine if the memory is writable
-        let is_writable = (current_protect &
-            (PAGE_READWRITE | PAGE_EXECUTE_READWRITE)) !=
-            PAGE_NOACCESS;
+        let is_writable =
+            (current_protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE)) != PAGE_NOACCESS;
 
         // If the memory is not writable, change the protection
         if !is_writable {
@@ -187,8 +197,18 @@ pub unsafe fn write_memory<T>(address: usize, value: T) -> Result<(), String> {
             };
 
             // Change memory protection
-            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, new_protect, &mut old_protect).is_err() {
-                return Err(format!("Failed to change memory protection at {:x}", address));
+            if VirtualProtect(
+                mbi.BaseAddress,
+                mbi.RegionSize,
+                new_protect,
+                &mut old_protect,
+            )
+            .is_err()
+            {
+                return Err(format!(
+                    "Failed to change memory protection at {:x}",
+                    address
+                ));
             }
         }
 
@@ -197,15 +217,24 @@ pub unsafe fn write_memory<T>(address: usize, value: T) -> Result<(), String> {
 
         // Restore the original memory protection if it was changed
         if !is_writable {
-            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, old_protect, &mut old_protect).is_err() {
-                return Err(format!("Failed to restore memory protection at {:x}", address));
+            if VirtualProtect(
+                mbi.BaseAddress,
+                mbi.RegionSize,
+                old_protect,
+                &mut old_protect,
+            )
+            .is_err()
+            {
+                return Err(format!(
+                    "Failed to restore memory protection at {:x}",
+                    address
+                ));
             }
         }
 
         Ok(())
     }
 }
-
 
 pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
     unsafe {
@@ -219,17 +248,25 @@ pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
         let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
 
         // Query the memory information at the specified address
-        if VirtualQuery(Option::from(address as *const c_void), &mut mbi, size_of::<MEMORY_BASIC_INFORMATION>()) == 0 {
-            return Err(format!("Failed to query memory information at {:x}", address));
+        if VirtualQuery(
+            Option::from(address as *const c_void),
+            &mut mbi,
+            size_of::<MEMORY_BASIC_INFORMATION>(),
+        ) == 0
+        {
+            return Err(format!(
+                "Failed to query memory information at {:x}",
+                address
+            ));
         }
 
         // Check the current protection flags
         let current_protect = mbi.Protect;
 
         // Determine if the memory is readable
-        let is_readable = (current_protect &
-            (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE)) !=
-            PAGE_NOACCESS;
+        let is_readable = (current_protect
+            & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))
+            != PAGE_NOACCESS;
 
         // If the memory is not readable, change the protection
         if !is_readable {
@@ -242,8 +279,18 @@ pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
             };
 
             // Change memory protection
-            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, new_protect, &mut old_protect).is_err() {
-                return Err(format!("Failed to change memory protection at {:x}", address));
+            if VirtualProtect(
+                mbi.BaseAddress,
+                mbi.RegionSize,
+                new_protect,
+                &mut old_protect,
+            )
+            .is_err()
+            {
+                return Err(format!(
+                    "Failed to change memory protection at {:x}",
+                    address
+                ));
             }
         }
 
@@ -252,8 +299,18 @@ pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
 
         // Restore the original memory protection if it was changed
         if !is_readable {
-            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, old_protect, &mut old_protect).is_err() {
-                return Err(format!("Failed to restore memory protection at {:x}", address));
+            if VirtualProtect(
+                mbi.BaseAddress,
+                mbi.RegionSize,
+                old_protect,
+                &mut old_protect,
+            )
+            .is_err()
+            {
+                return Err(format!(
+                    "Failed to restore memory protection at {:x}",
+                    address
+                ));
             }
         }
 
@@ -270,17 +327,25 @@ pub unsafe fn read_vector<T>(address: usize, len: usize) -> Result<Vec<T>, Strin
         let mut old_protect: PAGE_PROTECTION_FLAGS = PAGE_PROTECTION_FLAGS(0);
 
         // Query the memory information at the specified address
-        if VirtualQuery(Option::from(address as *const c_void), &mut mbi, size_of::<MEMORY_BASIC_INFORMATION>()) == 0 {
-            return Err(format!("Failed to query memory information at {:x}", address));
+        if VirtualQuery(
+            Option::from(address as *const c_void),
+            &mut mbi,
+            size_of::<MEMORY_BASIC_INFORMATION>(),
+        ) == 0
+        {
+            return Err(format!(
+                "Failed to query memory information at {:x}",
+                address
+            ));
         }
 
         // Check the current protection flags
         let current_protect = mbi.Protect;
 
         // Determine if the memory is readable
-        let is_readable = (current_protect &
-            (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE)) !=
-            PAGE_NOACCESS;
+        let is_readable = (current_protect
+            & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))
+            != PAGE_NOACCESS;
 
         // If the memory is not readable, change the protection
         if !is_readable {
@@ -293,8 +358,18 @@ pub unsafe fn read_vector<T>(address: usize, len: usize) -> Result<Vec<T>, Strin
             };
 
             // Change memory protection
-            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, new_protect, &mut old_protect).is_err() {
-                return Err(format!("Failed to change memory protection at {:x}", address));
+            if VirtualProtect(
+                mbi.BaseAddress,
+                mbi.RegionSize,
+                new_protect,
+                &mut old_protect,
+            )
+            .is_err()
+            {
+                return Err(format!(
+                    "Failed to change memory protection at {:x}",
+                    address
+                ));
             }
         }
 
@@ -310,8 +385,18 @@ pub unsafe fn read_vector<T>(address: usize, len: usize) -> Result<Vec<T>, Strin
 
         // Restore the original memory protection if it was changed
         if !is_readable {
-            if VirtualProtect(mbi.BaseAddress, mbi.RegionSize, old_protect, &mut old_protect).is_err() {
-                return Err(format!("Failed to restore memory protection at {:x}", address));
+            if VirtualProtect(
+                mbi.BaseAddress,
+                mbi.RegionSize,
+                old_protect,
+                &mut old_protect,
+            )
+            .is_err()
+            {
+                return Err(format!(
+                    "Failed to restore memory protection at {:x}",
+                    address
+                ));
             }
         }
 
@@ -330,7 +415,6 @@ pub unsafe fn read_view_matrix(address: usize) -> Result<[f32; 16], String> {
         Ok(array)
     }
 }
-
 
 /*pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
     // Change memory protection to readable and executable if needed
@@ -357,38 +441,43 @@ pub unsafe fn read_memory_into_slice(address: usize, buffer: &mut [u8]) -> Resul
     // Change memory protection to readable and executable if needed
     let mut old_protect = PAGE_PROTECTION_FLAGS(0);
     unsafe {
-    if VirtualProtect(address as *mut c_void, size, PAGE_READWRITE, &mut old_protect).is_err() {
-        return Err(format!("Failed to change memory protection at {:x}", address));
-    }
+        if VirtualProtect(
+            address as *mut c_void,
+            size,
+            PAGE_READWRITE,
+            &mut old_protect,
+        )
+        .is_err()
+        {
+            return Err(format!(
+                "Failed to change memory protection at {:x}",
+                address
+            ));
+        }
 
-    // Copy the memory into the buffer
-    ptr::copy_nonoverlapping(address as *const u8, buffer.as_mut_ptr(), size);
+        // Copy the memory into the buffer
+        ptr::copy_nonoverlapping(address as *const u8, buffer.as_mut_ptr(), size);
 
-    // Restore original memory protection
-    if VirtualProtect(address as *mut c_void, size, old_protect, &mut old_protect).is_err() {
-        return Err(format!("Failed to restore memory protection at {:x}", address));
-    }
+        // Restore original memory protection
+        if VirtualProtect(address as *mut c_void, size, old_protect, &mut old_protect).is_err() {
+            return Err(format!(
+                "Failed to restore memory protection at {:x}",
+                address
+            ));
+        }
     }
     Ok(())
 }
 
-
-
-
-
-
-
 #[allow(unused)]
 pub fn open_console() {
-    unsafe
-    {
+    unsafe {
         AllocConsole().expect("Failed to allocate console");
     }
 }
 #[allow(unused)]
 pub fn close_console() {
-    unsafe
-    {
+    unsafe {
         FreeConsole().expect("Failed to free console");
     }
 }
@@ -421,16 +510,20 @@ pub fn run_cmd(command: &str) -> String {
 
 pub unsafe fn setup_tracing() {
     let e = hudhook::alloc_console();
-    if e.is_err()
-    {
-        unsafe { println!("[MainThread] Failed to allocate console: {:?}", GetLastError()); }
-    }
-    else
-    {
+    if e.is_err() {
+        unsafe {
+            println!(
+                "[MainThread] Failed to allocate console: {:?}",
+                GetLastError()
+            );
+        }
+    } else {
         println!("[MainThread] Allocated console");
     }
     hudhook::enable_console_colors();
-    unsafe {std::env::set_var("RUST_LOG", "info"); }//trace
+    unsafe {
+        std::env::set_var("RUST_LOG", "info");
+    } //trace
 
     let log_file = hudhook::util::get_dll_path()
         .map(|mut path| {

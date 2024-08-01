@@ -1,14 +1,13 @@
 use std::ffi::{c_void, CString};
 
-use hudhook::{eject, Hudhook};
 use hudhook::hooks::opengl3::ImguiOpenGl3Hooks;
 use hudhook::windows::Win32::Foundation::HINSTANCE;
+use hudhook::{eject, Hudhook};
 use windows::core::PCSTR;
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 use windows::Win32::System::Threading::Sleep;
 
 use crate::esp::esp_entrypoint;
-use crate::settings::load_app_settings;
 use crate::ui::RenderLoop;
 use crate::utils::setup_tracing;
 use crate::vars::handles::{CHEAT_DLL_HMODULE, OPENGL32_DLL_HMODULE};
@@ -29,7 +28,10 @@ pub extern "system" fn MainThread(lpReserved: *mut c_void) -> u32 {
             Sleep(2000);
         }
         println!("[MainThread] Found OPENGL32.dll.");
-        println!("[MainThread] OPENGL32_DLL_HMODULE is: {:?}", OPENGL32_DLL_HMODULE.0);
+        println!(
+            "[MainThread] OPENGL32_DLL_HMODULE is: {:?}",
+            OPENGL32_DLL_HMODULE.0
+        );
 
         if let Err(e) = Hudhook::builder()
             .with::<ImguiOpenGl3Hooks>(RenderLoop)
@@ -39,7 +41,10 @@ pub extern "system" fn MainThread(lpReserved: *mut c_void) -> u32 {
         {
             eject();
 
-            println!("[MainThread] HudHook has been ejected. MH_STATUS is: {:?}", e);
+            println!(
+                "[MainThread] HudHook has been ejected. MH_STATUS is: {:?}",
+                e
+            );
         } else {
             println!("[MainThread] HudHook has been injected.");
         }

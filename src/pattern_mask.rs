@@ -14,7 +14,11 @@ impl PatternMask {
             mask: Vec::new(),
         };
 
-        d.string_byte_array = search.trim().split_whitespace().map(|s| s.to_string()).collect();
+        d.string_byte_array = search
+            .trim()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
         let length = d.string_byte_array.len();
         d.aob_pattern = vec![0; length];
         d.mask = vec![0; length];
@@ -27,13 +31,15 @@ impl PatternMask {
                 && ba.chars().nth(1) == Some('?')
             {
                 d.mask[i] = 0xF0;
-                let hex_value = u8::from_str_radix(&format!("{}0", ba.chars().next().unwrap()), 16).unwrap();
+                let hex_value =
+                    u8::from_str_radix(&format!("{}0", ba.chars().next().unwrap()), 16).unwrap();
                 d.aob_pattern[i] = hex_value;
             } else if ba.chars().next() == Some('?')
                 && ba.chars().nth(1).unwrap().is_ascii_alphanumeric()
             {
                 d.mask[i] = 0x0F;
-                let hex_value = u8::from_str_radix(&format!("0{}", ba.chars().nth(1).unwrap()), 16).unwrap();
+                let hex_value =
+                    u8::from_str_radix(&format!("0{}", ba.chars().nth(1).unwrap()), 16).unwrap();
                 d.aob_pattern[i] = hex_value;
             } else {
                 d.mask[i] = 0xFF;
@@ -47,13 +53,13 @@ impl PatternMask {
             }
         }
 
-
         d
     }
 
     // Method to convert mask to a string representation
     pub fn mask_to_string(&self) -> String {
-        self.mask.iter()
+        self.mask
+            .iter()
             .map(|&byte| {
                 if byte == 0xFF {
                     "x".to_string() // Fully defined byte

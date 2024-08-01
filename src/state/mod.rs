@@ -1,35 +1,14 @@
 use std::{
     self,
-    any::{
-        self,
-        Any,
-        TypeId,
-    },
-    cell::{
-        Ref,
-        RefCell,
-        RefMut,
-    },
-    collections::{
-        hash_map::Entry,
-        HashMap,
-    },
-    hash::{
-        DefaultHasher,
-        Hash,
-        Hasher,
-    },
+    any::{self, Any, TypeId},
+    cell::{Ref, RefCell, RefMut},
+    collections::{hash_map::Entry, HashMap},
+    hash::{DefaultHasher, Hash, Hasher},
     ops::DerefMut,
-    time::{
-        Duration,
-        Instant,
-    },
+    time::{Duration, Instant},
 };
 
-use anyhow::{
-    anyhow,
-    Context,
-};
+use anyhow::{anyhow, Context};
 
 pub enum StateCacheType {
     /// The state will be cached and never removed

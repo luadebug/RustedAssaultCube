@@ -18,7 +18,8 @@ impl Angle {
         let distance = distance_3d(player_pos, enemy_pos);
 
         // Calculate yaw
-        let yaw = -((enemy_pos.x - player_pos.x).atan2(enemy_pos.y - player_pos.y)) / PI * 180.0 + 180.0;
+        let yaw =
+            -((enemy_pos.x - player_pos.x).atan2(enemy_pos.y - player_pos.y)) / PI * 180.0 + 180.0;
 
         // Calculate pitch
         let pitch = (enemy_pos.z - player_pos.z) / distance;
@@ -26,6 +27,4 @@ impl Angle {
 
         Angle { yaw, pitch }
     }
-
 }
-

@@ -1,4 +1,9 @@
-use crate::offsets::offsets::{HEAD_X_FROM_LOCAL_PLAYER, HEAD_Y_FROM_LOCAL_PLAYER, HEAD_Z_FROM_LOCAL_PLAYER, HEALTH_OFFSET_FROM_LOCAL_PLAYER, NAME_OFFSET_FROM_LOCAL_PLAYER, PITCH_OFFSET, POSITION_X_FROM_LOCAL_PLAYER, POSITION_Y_FROM_LOCAL_PLAYER, POSITION_Z_FROM_LOCAL_PLAYER, TEAM_OFFSET_FROM_LOCAL_PLAYER, YAW_OFFSET};
+use crate::offsets::offsets::{
+    HEAD_X_FROM_LOCAL_PLAYER, HEAD_Y_FROM_LOCAL_PLAYER, HEAD_Z_FROM_LOCAL_PLAYER,
+    HEALTH_OFFSET_FROM_LOCAL_PLAYER, NAME_OFFSET_FROM_LOCAL_PLAYER, PITCH_OFFSET,
+    POSITION_X_FROM_LOCAL_PLAYER, POSITION_Y_FROM_LOCAL_PLAYER, POSITION_Z_FROM_LOCAL_PLAYER,
+    TEAM_OFFSET_FROM_LOCAL_PLAYER, YAW_OFFSET,
+};
 use crate::utils::{read_memory, read_memory_into_slice, write_memory};
 use crate::vec_structures::Vec3;
 
@@ -19,22 +24,15 @@ impl Entity {
     }
 
     pub fn yaw(&self) -> Result<f32, String> {
-        unsafe {
-            read_memory::<f32>(self.entity_starts_at_addr + YAW_OFFSET)
-        }
+        unsafe { read_memory::<f32>(self.entity_starts_at_addr + YAW_OFFSET) }
     }
 
-
     pub fn pitch(&self) -> Result<f32, String> {
-        unsafe {
-            read_memory::<f32>(self.entity_starts_at_addr + PITCH_OFFSET)
-        }
+        unsafe { read_memory::<f32>(self.entity_starts_at_addr + PITCH_OFFSET) }
     }
 
     pub fn health(&self) -> Result<i32, String> {
-        unsafe {
-            read_memory::<i32>(self.entity_starts_at_addr + HEALTH_OFFSET_FROM_LOCAL_PLAYER)
-        }
+        unsafe { read_memory::<i32>(self.entity_starts_at_addr + HEALTH_OFFSET_FROM_LOCAL_PLAYER) }
     }
 
     pub fn is_alive(&self) -> bool {
@@ -60,22 +58,20 @@ impl Entity {
     }
 
     pub fn team(&self) -> Result<i32, String> {
-        unsafe {
-            read_memory::<i32>(self.entity_starts_at_addr + TEAM_OFFSET_FROM_LOCAL_PLAYER)
-        }
+        unsafe { read_memory::<i32>(self.entity_starts_at_addr + TEAM_OFFSET_FROM_LOCAL_PLAYER) }
     }
 
     pub fn name(&self) -> Result<String, String> {
         let mut buffer: [u8; 256] = [0; 256];
         let address = self.entity_starts_at_addr + NAME_OFFSET_FROM_LOCAL_PLAYER;
         unsafe {
-        if let Ok(()) = read_memory_into_slice(address, &mut buffer) {
-            let name_end = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
-            let name = String::from_utf8_lossy(&buffer[..name_end]).into_owned();
-            Ok(name)
-        } else {
-            Err(format!("Failed to read name at address {:x}", address))
-        }
+            if let Ok(()) = read_memory_into_slice(address, &mut buffer) {
+                let name_end = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
+                let name = String::from_utf8_lossy(&buffer[..name_end]).into_owned();
+                Ok(name)
+            } else {
+                Err(format!("Failed to read name at address {:x}", address))
+            }
         }
     }
 

@@ -46,5 +46,4 @@ pub mod offsets {
 
     pub const BRIGHTNESS: usize = 0x182D40;
     pub const SET_BRIGHTNESS: usize = 0xBA180;
-
 }

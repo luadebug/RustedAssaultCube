@@ -9,18 +9,14 @@ pub(crate) fn get_window_dimensions(window: HWND) -> Result<WindowDimensions, Bo
 
     unsafe {
         match GetWindowInfo(window, &mut window_info) {
-            Ok(_) => {
-                Ok(WindowDimensions {
-                    width: window_info.rcClient.right - window_info.rcClient.left,
-                    height: window_info.rcClient.bottom - window_info.rcClient.top,
-                })
-            }
-            Err(_) => {
-                Err(Box::new(format!(
-                    "Error getting screen dimensions. last_error={:?}",
-                    GetLastError()
-                )))
-            }
+            Ok(_) => Ok(WindowDimensions {
+                width: window_info.rcClient.right - window_info.rcClient.left,
+                height: window_info.rcClient.bottom - window_info.rcClient.top,
+            }),
+            Err(_) => Err(Box::new(format!(
+                "Error getting screen dimensions. last_error={:?}",
+                GetLastError()
+            ))),
         }
     }
 }

@@ -1,8 +1,11 @@
-use std::ffi::{c_int, c_void, CStr, CString};
-use std::ptr::{null, null_mut};
+use std::ffi::CString;
+
 use windows::core::PCSTR;
-use windows::Win32::Foundation::{COLORREF, GetLastError, RECT};
-use windows::Win32::Graphics::Gdi::{AddFontMemResourceEx, CreateFontA, CreateSolidBrush, DeleteObject, Ellipse, FillRect, HBRUSH, HDC, HGDIOBJ, Rectangle, RemoveFontMemResourceEx, SelectObject, SetBkMode, SetTextColor, TextOutA, TRANSPARENT};
+use windows::Win32::Foundation::{GetLastError, COLORREF, RECT};
+use windows::Win32::Graphics::Gdi::{
+    CreateFontA, CreateSolidBrush, DeleteObject, Ellipse, FillRect, Rectangle, SelectObject,
+    SetBkMode, SetTextColor, TextOutA, HBRUSH, HDC, TRANSPARENT,
+};
 
 use crate::entity::Entity;
 
@@ -95,120 +98,52 @@ pub unsafe fn draw_border_box(
     draw_filled_rect(hdc, brush, x, y + height, width + thickness, thickness);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 pub unsafe fn draw_text(hdc: HDC, x: i32, y: i32, ent: &Entity) {
     unsafe {
-    // Create a font with the specified size
-    let mut n_fonts: u32 = 0;
-
-    let font_handle = AddFontMemResourceEx(crate::fonts::clash_font::CLASH.as_ptr() as *const c_void, // Pointer to the font resource
-                                                   crate::fonts::clash_font::CLASH.len() as u32,              // Size of the font resource
-                                                   Some(null()),                          // Reserved (must be NULL)
-                                                   &mut n_fonts);                      // Number of fonts installed
-
-        if font_handle.0.is_null() {
-            println!("Failed to add font from memory, error: {:?}", GetLastError());
-            return;
-        }
-
-
-
-
         // Create a logical font with specified parameters
         let font_size: i32 = 64; // Set the desired font size here
         let font_name_cstr = CString::new("Clash Display Medium").unwrap();
 
         let font = CreateFontA(
-            font_size,          // Height of the font
-            0,                  // Width of the font (0 means default width)
-            0,                  // Angle of escapement
-            0,                  // Base-line angle
-            700,                // Weight (400 is normal)
-            0,                  // Italic
-            0,                  // Underline
-            0,                  // Strikeout
-            0,                  // Character Set
-            0,                  // Output Precision
-            0,                  // Clipping Precision
-            0,                  // Quality
-            0,                  // Pitch and Family
-            PCSTR(font_name_cstr.as_ptr() as *const u8) // Font name as PCSTR
+            font_size,                                   // Height of the font
+            0,   // Width of the font (0 means default width)
+            0,   // Angle of escapement
+            0,   // Base-line angle
+            700, // Weight (400 is normal)
+            0,   // Italic
+            0,   // Underline
+            0,   // Strikeout
+            0,   // Character Set
+            0,   // Output Precision
+            0,   // Clipping Precision
+            0,   // Quality
+            0,   // Pitch and Family
+            PCSTR(font_name_cstr.as_ptr() as *const u8), // Font name as PCSTR
         );
+        SetTextColor(hdc, COLORREF(0x00FF0000)); // Set text color to blue
+                                                 // Select the font into the device context
+                                                 //let old_font = SelectObject(hdc, font);
 
-
-/*    let font_name = CString::new("Arial").unwrap(); // Choose a font name
-
-    let font =
-        CreateFontA(
-            32,         // Height of the font
-            0,                 // Width of the font (0 means default width)
-            0,                 // Angle of escapement
-            0,                 // Base-line angle
-            400,               // Weight (400 is normal)
-            0,          // Italic
-            0,          // Underline
-            0,          // Strikeout
-            0,                 // Character Set
-            0,                 // Output Precision
-            0,                 // Clipping Precision
-            0,                 // Quality
-            0,                 // Pitch and Family
-            PCSTR(font_name.as_ptr() as *const u8) // Font name
-        );*/
-
-
-    SetTextColor(hdc, COLORREF(0x00FF0000)); // Set text color to blue
-    // Select the font into the device context
-    //let old_font = SelectObject(hdc, font);
-
-    //let old_font = SelectObject(hdc, HGDIOBJ(font_handle.0));
-
-    let name_str = ent.name(); // Get the name string
-    if name_str.is_ok() {
-        let name_str_res = name_str.unwrap();
-        {
-            if !name_str_res.is_empty()
+        let name_str = ent.name(); // Get the name string
+        if name_str.is_ok() {
+            let name_str_res = name_str.unwrap();
             {
-
-
-
-                // Set the background mode to transparent
-                SetBkMode(hdc, TRANSPARENT);
-                // Draw the name string
-                if TextOutA(
-                    hdc,
-                    x,
-                    y,
-                    name_str_res.as_bytes(),
-                ) == false {
-                    println!("TextOutA failed {:?}", GetLastError());
+                if !name_str_res.is_empty() {
+                    // Set the background mode to transparent
+                    SetBkMode(hdc, TRANSPARENT);
+                    // Draw the name string
+                    if TextOutA(hdc, x, y, name_str_res.as_bytes()) == false {
+                        println!("TextOutA failed {:?}", GetLastError());
+                    }
                 }
             }
         }
-    }
 
-    // Clean up: select the old font back into the device context and delete the created font
-
-        //SelectObject(hdc, old_font);
-        //let _ = DeleteObject(font);
-        //let _ = DeleteObject(old_font);
+        // Clean up: select the old font back into the device context and delete the created font
         SelectObject(hdc, font);
-        //let _ = DeleteObject(font);
         let _ = DeleteObject(font);
-        RemoveFontMemResourceEx(font_handle);
+        //let _ = RemoveFontMemResourceEx(font_handle);
     }
-
 }
 
 pub unsafe fn draw_circle(hdc: HDC, center: (f32, f32), radius: f32, color: COLORREF) {
