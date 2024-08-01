@@ -1,4 +1,9 @@
+# Internal DLL cheat, you need to build x86 and inject DLL into game process Assault Cube 1.3.0.2
 # Triggerbot, Aimbot, ESP and utils for Assault Cube 1.3.0.2
-# Gamebackend is OPENGL
-# DLL uses GDI and HUDHOOK (IMGUI)
+# Game's backend is OPENGL
+# DLL uses GDI (For drawing objects for extrasensory perception) and HUDHOOK (IMGUI for menu)
+# This DLL does not use OTF fonts yet, but OTF fonts is enabled, to use it you would need to install freetype
+# To install freetype you need to install vcpkg and install freetype, using command vcpkg install freetype --triplet=x86-windows-static-md && vcpkg install freetype --triplet=x86-windows-static && vcpkg install freetype --triplet=x86-windows
+# Note it uses nightly rust version and game is supported only for x86
+# To build you need to make sure you installed freetype using vcpkg and run command line cargo build -vv --target=i686-pc-windows-msvc --release
 ![Preview](https://raw.githubusercontent.com/luadebug/RustedAssaultCube/main/Preview.png)
