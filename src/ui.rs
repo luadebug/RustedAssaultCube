@@ -9,12 +9,12 @@ use gnal_tsur::gnal_tsur;
 use hudhook::{imgui, MessageFilter, RenderContext};
 use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, Io};
 use once_cell::sync::Lazy;
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_INSERT};
+use windows::Win32::UI::Input::KeyboardAndMouse::{VK_INSERT};
 
-use crate::aimbot::aimbot;
-use crate::game;
-use crate::game::set_brightness_toggle;
-use crate::hotkey_widget::{ImGuiKey, to_win_key};
+use crate::key_action::aimbot;
+use crate::game::{set_brightness_toggle, set_brightness};
+use crate::hotkey_widget::{ImGuiKey, KeyboardInputSystem, to_win_key};
+use crate::key_action::{KeyAction, toggle_aimbot, toggle_draw_fov, toggle_esp, toggle_fullbright, toggle_infinite_ammo, toggle_infinite_nades, toggle_invulnerability, toggle_maphack, toggle_no_recoil, toggle_no_reload, toggle_rapid_fire, toggle_show_ui, toggle_smooth, toggle_triggerbot, toggle_wallhack};
 use crate::locales::cantonese_locale::CANTONESE_LOCALE_VECTOR;
 use crate::locales::chinese_locale::MANDARIN_LOCALE_VECTOR;
 use crate::locales::english_locale::ENG_LOCALE_VECTOR;
@@ -33,7 +33,7 @@ use crate::vars::ui_vars::{
     IS_INVULNERABLE, IS_MAPHACK, IS_NO_RECOIL, IS_NO_RELOAD, IS_RAPID_FIRE, IS_SHOW_UI, IS_SMOOTH,
     IS_TRIGGERBOT, IS_WALLHACK,
 };
-
+pub static mut KEY_INPUT_SYSTEM: KeyboardInputSystem =  unsafe { KeyboardInputSystem::new() };
 static mut IS_NEED_CHANGE_THEME:bool = true;
 static mut IS_NEED_CHANGE_LOCALE:bool = true;
 static mut CURRENT_LOCALE_VECTOR: [&str; 24] = ENG_LOCALE_VECTOR;
@@ -41,7 +41,6 @@ static mut CURRENT_LOCALE_VECTOR: [&str; 24] = ENG_LOCALE_VECTOR;
 pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
     unsafe {
         let set_cl = app_settings.clone();
-
 
 
         if let Some(tab) = ui.tab_bar("Main Menu Tab Bar")
@@ -193,6 +192,7 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                     println!("Binded aimbot toggle key!");
                 }
                 if IS_AIMBOT.load(SeqCst) {
+                    ui.text("Aim Hotkey");
                     ui.same_line();
                     if ui.button_key_optional(
                         "Aimbot Aim HotKey",
@@ -203,6 +203,7 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                     ) {
                         println!("Binded aimbot aim key!");
                     }
+
                     if ui.checkbox(CURRENT_LOCALE_VECTOR[11], IS_DRAW_FOV.get_mut()) {
                         println!("Set Aimbot Draw FOV Toggle to {}", IS_DRAW_FOV.load(SeqCst));
                     }
@@ -279,7 +280,7 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                     println!("Set Full Bright Toggle to {}", IS_FULLBRIGHT.load(SeqCst));
 
                     // Get the function pointer after setting the brightness
-                    let set_brightness_func = game::set_brightness();
+                    let set_brightness_func = set_brightness();
 
                     // Ensure the function pointer is valid
                     if !set_brightness_func.is_null() {
@@ -376,6 +377,8 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
         _ctx: &mut Context,
         _render_context: &'a mut dyn RenderContext,
     ) {
+
+
         _ctx.set_ini_filename(None);
 
         unsafe {
@@ -401,6 +404,36 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
         _render_context: &'a mut dyn RenderContext,
     ) {
         unsafe {
+
+            let key_actions: Vec<KeyAction> = vec![
+                KeyAction { key: VK_INSERT.0 as usize, action: toggle_show_ui },
+                KeyAction { key: to_win_key(SETTINGS.deref().wallhack_key.as_ref().unwrap().key).0 as usize, action: toggle_wallhack },
+                KeyAction { key: to_win_key(SETTINGS.deref().esp_key.as_ref().unwrap().key).0 as usize, action: toggle_esp },
+                KeyAction { key: to_win_key(SETTINGS.deref().inf_nade.as_ref().unwrap().key).0 as usize, action: toggle_infinite_nades },
+                KeyAction { key: to_win_key(SETTINGS.deref().no_reload.as_ref().unwrap().key).0 as usize, action: toggle_no_reload },
+                KeyAction { key: to_win_key(SETTINGS.deref().invul.as_ref().unwrap().key).0 as usize, action: toggle_invulnerability },
+                KeyAction { key: to_win_key(SETTINGS.deref().inf_ammo.as_ref().unwrap().key).0 as usize, action: toggle_infinite_ammo },
+                KeyAction { key: to_win_key(SETTINGS.deref().no_recoil.as_ref().unwrap().key).0 as usize, action: toggle_no_recoil },
+                KeyAction { key: to_win_key(SETTINGS.deref().rapid_fire.as_ref().unwrap().key).0 as usize, action: toggle_rapid_fire },
+                KeyAction { key: to_win_key(SETTINGS.deref().aimbot.as_ref().unwrap().key).0 as usize, action: toggle_aimbot },
+                KeyAction { key: to_win_key(SETTINGS.deref().aim_draw_fov.as_ref().unwrap().key).0 as usize, action: toggle_draw_fov },
+                KeyAction { key: to_win_key(SETTINGS.deref().aim_smooth.as_ref().unwrap().key).0 as usize, action: toggle_smooth },
+                KeyAction { key: to_win_key(SETTINGS.deref().trigger_bot.as_ref().unwrap().key).0 as usize, action: toggle_triggerbot },
+                KeyAction { key: to_win_key(SETTINGS.deref().maphack.as_ref().unwrap().key).0 as usize, action: toggle_maphack },
+                KeyAction { key: to_win_key(SETTINGS.deref().fullbright.as_ref().unwrap().key).0 as usize, action: toggle_fullbright },
+                KeyAction { key: to_win_key(SETTINGS.deref().aim_key.as_ref().unwrap().key).0 as usize, action: aimbot}
+            ];
+
+
+            KEY_INPUT_SYSTEM.update(_ctx.io_mut());
+
+            for key_action in key_actions {
+                match KEY_INPUT_SYSTEM.key_states[key_action.key] {
+                    true => (key_action.action)(), // Call the action function if the key is pressed
+                    false => {}
+                }
+            }
+
             if IS_NEED_CHANGE_THEME
             {
                 match SETTINGS.deref_mut().theme_id
@@ -431,10 +464,8 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
             }
 
 
-            if IS_AIMBOT.load(SeqCst) {
-                aimbot(SETTINGS.deref());
-            }
-            hotkey_handler();
+
+
             _ctx.io_mut().mouse_draw_cursor = IS_SHOW_UI.load(SeqCst);
             _ctx.io_mut().want_set_mouse_pos = IS_SHOW_UI.load(SeqCst);
             _ctx.io_mut().want_capture_mouse = IS_SHOW_UI.load(SeqCst);
@@ -477,147 +508,21 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
 
             let custom_font = ui.push_font(font_id);
 
-            ui.window(CURRENT_LOCALE_VECTOR[0])
+            if let Some(wt) = ui.window(CURRENT_LOCALE_VECTOR[0])
                 .title_bar(true)
                 .size([1000.0, 700.0], imgui::Condition::FirstUseEver)
                 .position([300.0, 300.0], imgui::Condition::FirstUseEver)
-                .build(|| {
-                    on_frame(ui, SETTINGS.deref_mut());
+                .begin()
+                {
+                    unsafe { on_frame(ui, SETTINGS.deref_mut()); }
                     custom_font.pop();
-                });
+                    wt.end();
+                };
         }
     }
 }
 
-unsafe fn hotkey_handler() {
-    unsafe {
-        if GetAsyncKeyState(VK_INSERT.0 as i32) & 1 == 1 {
-            IS_SHOW_UI.store(!IS_SHOW_UI.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(
-            to_win_key(SETTINGS.deref().wallhack_key.as_ref().unwrap().key).0 as i32,
-        ) & 1
-            == 1
-        {
-            IS_WALLHACK.store(!IS_WALLHACK.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().esp_key.as_ref().unwrap().key).0 as i32) & 1
-            == 1
-        {
-            IS_ESP.store(!IS_ESP.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().inf_nade.as_ref().unwrap().key).0 as i32)
-            & 1
-            == 1
-        {
-            IS_GRENADES_INFINITE.store(!IS_GRENADES_INFINITE.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().no_reload.as_ref().unwrap().key).0 as i32)
-            & 1
-            == 1
-        {
-            IS_NO_RELOAD.store(!IS_NO_RELOAD.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().invul.as_ref().unwrap().key).0 as i32) & 1
-            == 1
-        {
-            IS_INVULNERABLE.store(!IS_INVULNERABLE.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().inf_ammo.as_ref().unwrap().key).0 as i32)
-            & 1
-            == 1
-        {
-            IS_INFINITE_AMMO.store(!IS_INFINITE_AMMO.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().no_recoil.as_ref().unwrap().key).0 as i32)
-            & 1
-            == 1
-        {
-            IS_NO_RECOIL.store(!IS_NO_RECOIL.load(SeqCst), SeqCst);
-            if IS_NO_RECOIL.load(SeqCst) {
-                NO_RECOIL_MEMORY_PATCH
-                    .patch_memory()
-                    .expect("[ui] Failed to patch memory no recoil");
-            } else {
-                NO_RECOIL_MEMORY_PATCH
-                    .unpatch_memory()
-                    .expect("[ui] Failed to unpatch memory no recoil");
-            }
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().rapid_fire.as_ref().unwrap().key).0 as i32)
-            & 1
-            == 1
-        {
-            IS_RAPID_FIRE.store(!IS_RAPID_FIRE.load(SeqCst), SeqCst);
-            if IS_RAPID_FIRE.load(SeqCst) {
-                RAPID_FIRE_MEMORY_PATCH
-                    .patch_memory()
-                    .expect("[ui] Failed to patch memory rapid fire");
-            } else {
-                RAPID_FIRE_MEMORY_PATCH
-                    .unpatch_memory()
-                    .expect("[ui] Failed to unpatch memory rapid fire");
-            }
-        }
-        //if GetAsyncKeyState(VK_F7.0 as i32) & 1 == 1
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().aimbot.as_ref().unwrap().key).0 as i32) & 1
-            == 1
-        {
-            IS_AIMBOT.store(!IS_AIMBOT.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(
-            to_win_key(SETTINGS.deref().aim_draw_fov.as_ref().unwrap().key).0 as i32,
-        ) & 1
-            == 1
-            && IS_AIMBOT.load(SeqCst)
-        {
-            IS_DRAW_FOV.store(!IS_DRAW_FOV.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().aim_smooth.as_ref().unwrap().key).0 as i32)
-            & 1
-            == 1
-            && IS_AIMBOT.load(SeqCst)
-        {
-            IS_SMOOTH.store(!IS_SMOOTH.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().trigger_bot.as_ref().unwrap().key).0 as i32)
-            & 1
-            == 1
-        {
-            IS_TRIGGERBOT.store(!IS_TRIGGERBOT.load(SeqCst), SeqCst);
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().maphack.as_ref().unwrap().key).0 as i32) & 1
-            == 1
-        {
-            IS_MAPHACK.store(!IS_MAPHACK.load(SeqCst), SeqCst);
-            if IS_MAPHACK.load(SeqCst) {
-                MAPHACK_MEMORY_PATCH
-                    .patch_memory()
-                    .expect("[ui] Failed to patch memory Maphack");
-            } else {
-                MAPHACK_MEMORY_PATCH
-                    .unpatch_memory()
-                    .expect("[ui] Failed to unpatch memory Maphack");
-            }
-        }
-        if GetAsyncKeyState(to_win_key(SETTINGS.deref().fullbright.as_ref().unwrap().key).0 as i32)
-            & 1
-            == 1
-        {
-            //IS_FULLBRIGHT = !IS_FULLBRIGHT;
-            IS_FULLBRIGHT.store(!IS_FULLBRIGHT.load(SeqCst), SeqCst);
-            // Get the function pointer after setting the brightness
-            let set_brightness_func = game::set_brightness();
 
-            // Ensure the function pointer is valid
-            if !set_brightness_func.is_null() {
-                set_brightness_toggle(IS_FULLBRIGHT.load(SeqCst));
-            } else {
-                println!("Function pointer to set_brightness is null!");
-            }
-        }
-    }
-}
 
 
 

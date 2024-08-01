@@ -42,6 +42,7 @@ mod wallhack_hook;
 mod window_dimensions;
 mod world_to_screen;
 mod locales;
+mod key_action;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]

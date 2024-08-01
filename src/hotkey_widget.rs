@@ -1,21 +1,11 @@
 use std::collections::HashSet;
-
+use std::sync::atomic::Ordering::SeqCst;
 use hudhook::imgui;
+use hudhook::imgui::{Io, MouseButton, Window};
 use imgui::Key;
 use serde::{de::Visitor, Deserialize, Serialize};
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    VK__none_, VIRTUAL_KEY, VK_0, VK_1, VK_2, VK_3, VK_4, VK_5, VK_6, VK_7, VK_8, VK_9, VK_A,
-    VK_ADD, VK_APPS, VK_B, VK_BACK, VK_C, VK_CAPITAL, VK_CONTROL, VK_D, VK_DECIMAL, VK_DELETE,
-    VK_DIVIDE, VK_DOWN, VK_E, VK_END, VK_ESCAPE, VK_F, VK_F1, VK_F10, VK_F11, VK_F12, VK_F2, VK_F3,
-    VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_G, VK_H, VK_HOME, VK_I, VK_INSERT, VK_J, VK_K,
-    VK_L, VK_LCONTROL, VK_LEFT, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_M, VK_MENU, VK_MULTIPLY, VK_N,
-    VK_NEXT, VK_NUMLOCK, VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5,
-    VK_NUMPAD6, VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_O, VK_OEM_1, VK_OEM_2, VK_OEM_3, VK_OEM_4,
-    VK_OEM_5, VK_OEM_6, VK_OEM_7, VK_OEM_COMMA, VK_OEM_MINUS, VK_OEM_PERIOD, VK_OEM_PLUS, VK_P,
-    VK_PAUSE, VK_PRIOR, VK_Q, VK_R, VK_RCONTROL, VK_RETURN, VK_RIGHT, VK_RMENU, VK_RSHIFT, VK_RWIN,
-    VK_S, VK_SCROLL, VK_SNAPSHOT, VK_SPACE, VK_SUBTRACT, VK_T, VK_TAB, VK_U, VK_UP, VK_V, VK_W,
-    VK_X, VK_Y, VK_Z,
-};
+use windows::Win32::UI::Input::KeyboardAndMouse::{VK__none_, VIRTUAL_KEY, VK_0, VK_1, VK_2, VK_3, VK_4, VK_5, VK_6, VK_7, VK_8, VK_9, VK_A, VK_ADD, VK_APPS, VK_B, VK_BACK, VK_C, VK_CAPITAL, VK_CONTROL, VK_D, VK_DECIMAL, VK_DELETE, VK_DIVIDE, VK_DOWN, VK_E, VK_END, VK_ESCAPE, VK_F, VK_F1, VK_F10, VK_F11, VK_F12, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_G, VK_H, VK_HOME, VK_I, VK_INSERT, VK_J, VK_K, VK_L, VK_LCONTROL, VK_LEFT, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_M, VK_MENU, VK_MULTIPLY, VK_N, VK_NEXT, VK_NUMLOCK, VK_NUMPAD0, VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD7, VK_NUMPAD8, VK_NUMPAD9, VK_O, VK_OEM_1, VK_OEM_2, VK_OEM_3, VK_OEM_4, VK_OEM_5, VK_OEM_6, VK_OEM_7, VK_OEM_COMMA, VK_OEM_MINUS, VK_OEM_PERIOD, VK_OEM_PLUS, VK_P, VK_PAUSE, VK_PRIOR, VK_Q, VK_R, VK_RCONTROL, VK_RETURN, VK_RIGHT, VK_RMENU, VK_RSHIFT, VK_RWIN, VK_S, VK_SCROLL, VK_SNAPSHOT, VK_SPACE, VK_SUBTRACT, VK_T, VK_TAB, VK_U, VK_UP, VK_V, VK_W, VK_X, VK_Y, VK_Z, GetAsyncKeyState};
+use crate::vars::ui_vars::IS_SHOW_UI;
 
 #[derive(Clone, Debug)]
 pub struct HotKey {
@@ -276,6 +266,68 @@ pub fn render_button_key(
 
     updated
 }
+
+
+
+/// Simple input system using the global mouse / keyboard state.
+/// This does not require the need to process window messages or the imgui overlay to be active.
+// Implement Default for [bool; VK_KEY_MAX]
+
+
+
+#[derive(Debug)]
+#[allow(unused)]
+pub struct KeyboardInputSystem {
+    pub key_states: [bool; VK_KEY_MAX],
+}
+
+#[allow(unused)]
+impl KeyboardInputSystem {
+    pub const fn new() -> Self {
+        Self {
+            key_states: [false; VK_KEY_MAX], // Initialize with all false
+        }
+    }
+
+    pub unsafe fn update(&mut self, io: &mut Io) {
+        for vkey in 0..VK_KEY_MAX {
+            let key_state = unsafe { GetAsyncKeyState(vkey as i32) as u16 };
+            let pressed = key_state & 1 == 1;
+            if self.key_states[vkey] == pressed {
+                continue;
+            }
+
+            self.key_states[vkey] = pressed;
+            let vkey = VIRTUAL_KEY(vkey as u16);
+
+            handle_key_modifier(io, vkey, pressed);
+
+            if !IS_SHOW_UI.load(SeqCst) //Do not handle mouse input in case menu is opened up
+            {
+               let mouse_button = match vkey {
+                    VK_LBUTTON => Some(MouseButton::Left),
+                    VK_RBUTTON => Some(MouseButton::Right),
+                    VK_MBUTTON => Some(MouseButton::Middle),
+                    VK_XBUTTON1 => Some(MouseButton::Extra1),
+                    VK_XBUTTON2 => Some(MouseButton::Extra2),
+                    _ => None,
+                };
+
+                if let Some(button) = mouse_button {
+                    io.add_mouse_button_event(button, pressed);
+                }
+            }
+            if let Some(key) = to_imgui_key(vkey) {
+                println!("Key toogle {:?}: {}", key, pressed);
+                io.add_key_event(key, pressed);
+            } else {
+                println!("Missing ImGui key for {:?}", vkey);
+            }
+        }
+    }
+}
+
+
 
 const VK_KEY_MAX: usize = 256;
 

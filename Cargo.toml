@@ -2,7 +2,7 @@ cargo-features = ["edition2024", "profile-rustflags"]
 
 [package]
 name = "rusted-assault-cube"
-version = "2.2.0"
+version = "2.3.0"
 edition = "2024"
 authors = ["luadebug Lin Evelynn lin@sz.cn.eu.org"]
 publish = false
