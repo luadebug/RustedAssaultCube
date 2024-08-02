@@ -7,10 +7,11 @@ use std::sync::atomic::Ordering::SeqCst;
 
 use gnal_tsur::gnal_tsur;
 use hudhook::{imgui, MessageFilter, RenderContext};
-use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, Io};
+use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, ImColor32, Io};
 use once_cell::sync::Lazy;
 use windows::Win32::UI::Input::KeyboardAndMouse::{VK_INSERT};
-
+use crate::distance;
+use crate::entity::Entity;
 use crate::key_action::aimbot;
 use crate::game::{set_brightness_toggle, set_brightness};
 use crate::hotkey_widget::{ImGuiKey, KeyboardInputSystem, to_win_key};
@@ -21,10 +22,12 @@ use crate::locales::english_locale::ENG_LOCALE_VECTOR;
 use crate::locales::hebrew_locale::HEBREW_LOCALE_VECTOR;
 use crate::locales::russian_locale::RUS_LOCALE_VECTOR;
 use crate::locales::ukrainian_locale::UA_LOCALE_VECTOR;
+use crate::offsets::offsets::{ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, VIEW_MATRIX_ADDR};
 use crate::settings::{AppSettings, load_app_settings, save_app_settings};
 use crate::style::{set_style_minty_light, set_style_minty_mint, set_style_minty_red, set_style_unicore};
-use crate::utils::run_cmd;
-use crate::vars::game_vars::{FOV, SMOOTH, TRIGGER_DELAY};
+use crate::utils::{read_memory, read_view_matrix, run_cmd};
+use crate::vars::game_vars::{ENTITY_LIST_PTR, FOV, LOCAL_PLAYER, NUM_PLAYERS_IN_MATCH, SMOOTH, TRIGGER_DELAY, VIEW_MATRIX};
+use crate::vars::handles::{AC_CLIENT_EXE_HMODULE, GAME_WINDOW_DIMENSIONS};
 use crate::vars::mem_patches::{
     MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH,
 };
@@ -33,6 +36,9 @@ use crate::vars::ui_vars::{
     IS_INVULNERABLE, IS_MAPHACK, IS_NO_RECOIL, IS_NO_RELOAD, IS_RAPID_FIRE, IS_SHOW_UI, IS_SMOOTH,
     IS_TRIGGERBOT, IS_WALLHACK,
 };
+use crate::vec_structures::Vec2;
+use crate::world_to_screen::world_to_screen;
+
 pub static mut KEY_INPUT_SYSTEM: KeyboardInputSystem =  unsafe { KeyboardInputSystem::new() };
 static mut IS_NEED_CHANGE_THEME:bool = true;
 static mut IS_NEED_CHANGE_LOCALE:bool = true;
@@ -331,7 +337,171 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                 }
                 item.end();
             }
+            if let Some(item) = ui.tab_item("ESP settings")
+            {
+                if let Some(tab_esp) = ui.tab_bar("ESP Config Tab Bar")
+                {
+                    if let Some(tab_esp_item) = ui.tab_item("ESP traceline settings")
+                    {
+                        if ui.checkbox("Draw tracelines", &mut SETTINGS.is_draw_trace_lines) {
+                            println!("Set ESP drawing tracelines Toggle to {}",
+                                     SETTINGS.deref().is_draw_trace_lines);
+                        }
+                        if SETTINGS.is_draw_trace_lines
+                        {
+                            if ui.slider("Traceline thickness",
+                                         0.1f32, 10.0f32,
+                                         &mut SETTINGS.trace_line_thickness)
+                            {
+                                println!("Set traceline thickness {}", SETTINGS.deref().trace_line_thickness);
+                            }
+                            if ui.checkbox("Show ally traceline", &mut SETTINGS.is_draw_trace_lines_ally)
+                            {
+                                println!("Toggled show ally traceline {}", SETTINGS.deref().is_draw_trace_lines_ally);
+                            }
+                            if ui.color_edit3("Ally traceline color",
+                                                &mut SETTINGS.ally_trace_line_color)
+                            {
+                                println!("Set color for ally traceline {:?}",
+                                         SETTINGS.deref().ally_trace_line_color);
+                            }
+                            if ui.checkbox("Show enemy traceline", &mut SETTINGS.is_draw_trace_lines_enemy)
+                            {
+                                println!("Toggled show enemy traceline {}", SETTINGS.deref().is_draw_trace_lines_enemy);
+                            }
+                            if ui.color_edit3("Enemy traceline color",
+                                                &mut SETTINGS.enemy_trace_line_color)
+                            {
+                                println!("Set color for enemy traceline {:?}",
+                                         SETTINGS.enemy_trace_line_color);
+                            }
+                        }
+                        tab_esp_item.end();
+                    }
+                    if let Some(tab_esp_item) = ui.tab_item("ESP boxes settings")
+                    {
+                        if ui.checkbox("Draw boxes", &mut SETTINGS.is_draw_boxes)
+                        {
+                            println!("Toggled show enemy traceline {}", SETTINGS.deref().is_draw_boxes);
+                        }
 
+                        if SETTINGS.is_draw_boxes
+                        {
+                            if ui.slider("Boxes thickness",
+                                         0.1f32, 10.0f32,
+                                         &mut SETTINGS.box_thickness)
+                            {
+                                println!("Set box thickness {}", SETTINGS.deref().box_thickness);
+                            }
+                            if ui.checkbox("Show ally boxes", &mut SETTINGS.is_draw_boxes_ally)
+                            {
+                                println!("Toggled show ally boxes {}", SETTINGS.deref().is_draw_boxes_ally);
+                            }
+                            if ui.color_edit3("Ally boxes color",
+                                              &mut SETTINGS.ally_box_color)
+                            {
+                                println!("Set color for ally boxes {:?}",
+                                         SETTINGS.deref().ally_box_color);
+                            }
+                            if ui.checkbox("Show enemy boxes", &mut SETTINGS.is_draw_boxes_enemy)
+                            {
+                                println!("Toggled show enemy boxes {}", SETTINGS.deref().is_draw_boxes_enemy);
+                            }
+                            if ui.color_edit3("Enemy boxes color",
+                                              &mut SETTINGS.enemy_box_color)
+                            {
+                                println!("Set color for enemy boxes {:?}",
+                                         SETTINGS.enemy_box_color);
+                            }
+                        }
+
+
+                        tab_esp_item.end();
+                    }
+                    if let Some(tab_esp_item) = ui.tab_item("ESP health bar settings")
+                    {
+                        if ui.checkbox("Draw health bars", &mut SETTINGS.is_draw_hp_bar)
+                        {
+                            println!("Toggled show enemy traceline {}", SETTINGS.deref().is_draw_boxes);
+                        }
+
+                        if SETTINGS.is_draw_hp_bar
+                        {
+                            if ui.checkbox("Show horizontal hp bar", &mut SETTINGS.is_horizontal_hp_bar)
+                            {
+                                println!("Toggled horizontal hp bar {}", SETTINGS.deref().is_horizontal_hp_bar);
+                            }
+                            ui.same_line();
+                            if ui.checkbox("Show vertical hp bar", &mut SETTINGS.is_vertical_hp_bar)
+                            {
+                                println!("Toggled vertical hp bar {}", SETTINGS.deref().is_vertical_hp_bar);
+                            }
+                            if ui.slider("Health bar thickness",
+                                         0.1f32, 10.0f32,
+                                         &mut SETTINGS.hp_bar_thickness)
+                            {
+                                println!("Set health bar thickness {}", SETTINGS.deref().hp_bar_thickness);
+                            }
+                            if ui.checkbox("Show ally health bar", &mut SETTINGS.is_draw_hp_bar_ally)
+                            {
+                                println!("Toggled show ally health bar {}", SETTINGS.deref().is_draw_hp_bar_ally);
+                            }
+                            ui.same_line();
+                            if ui.checkbox("Show enemy health bar", &mut SETTINGS.is_draw_hp_bar_enemy)
+                            {
+                                println!("Toggled show enemy health bar {}", SETTINGS.deref().is_draw_hp_bar_enemy);
+                            }
+                            if ui.color_edit3("Inner health bar color",
+                                              &mut SETTINGS.inner_hp_bar_color)
+                            {
+                                println!("Set color for inner health bar {:?}",
+                                         SETTINGS.deref().inner_hp_bar_color);
+                            }
+
+                            if ui.color_edit3("Outer health bar color",
+                                              &mut SETTINGS.outer_hp_bar_color)
+                            {
+                                println!("Set color for outer health bar {:?}",
+                                         SETTINGS.outer_hp_bar_color);
+                            }
+                        }
+                        tab_esp_item.end();
+                    }
+                    if let Some(tab_esp_item) = ui.tab_item("ESP text settings")
+                    {
+                        if ui.checkbox("Draw name text", &mut SETTINGS.is_draw_name_text)
+                        {
+                            println!("Toggled draw name text to {}", SETTINGS.deref().is_draw_name_text)
+                        }
+                        if SETTINGS.deref().is_draw_name_text
+                        {
+                            if ui.checkbox("Draw ally name text", &mut SETTINGS.is_draw_name_text_ally)
+                            {
+                                println!("Toggled draw ally name text to {}", SETTINGS.deref().is_draw_name_text_ally)
+                            }
+                            ui.same_line();
+                            if ui.checkbox("Draw enemy name text", &mut SETTINGS.is_draw_name_text_enemy)
+                            {
+                                println!("Toggled draw enemy name text to {}", SETTINGS.deref().is_draw_name_text_enemy)
+                            }
+                            if ui.slider("Name text size", 10.0f32, 60.0f32, &mut SETTINGS.name_text_thickness)
+                            {
+                                println!("Set name text size to {}", SETTINGS.deref().name_text_thickness)
+                            }
+                            if ui.color_edit3("Ally name text color", &mut SETTINGS.ally_name_text_color)
+                            {
+                                println!("Set ally name text color to {:?}", SETTINGS.ally_name_text_color);
+                            }
+                            if ui.color_edit3("Enemy name text color", &mut SETTINGS.enemy_name_text_color)
+                            {
+                                println!("Set ally name text color to {:?}", SETTINGS.enemy_name_text_color);
+                            }
+                        }
+                        tab_esp_item.end();
+                    }
+                    tab_esp.end();
+                }
+            }
             tab.end();
         }
 
@@ -485,7 +655,276 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
     }
 
     fn render(&mut self, ui: &mut imgui::Ui) {
+
+
         unsafe {
+
+            if IS_ESP.load(SeqCst) {
+
+
+
+
+                let local_player_addr =
+                    match read_memory::<usize>(AC_CLIENT_EXE_HMODULE + LOCAL_PLAYER_OFFSET) {
+                        Ok(addr) => addr,
+                        Err(err) => {
+                            println!("Error reading local player address: {}", err);
+                            return ();
+                        }
+                    };
+
+                LOCAL_PLAYER = Entity::from_addr(local_player_addr);
+
+                let num_players_in_match =
+                    match read_memory::<i32>(AC_CLIENT_EXE_HMODULE + NUMBER_OF_PLAYERS_IN_MATCH_OFFSET)
+                    {
+                        Ok(num) => num as usize,
+                        Err(err) => {
+                            println!("Error reading number of players in match: {}", err);
+                            return ();
+                        }
+                    };
+                NUM_PLAYERS_IN_MATCH = num_players_in_match;
+
+                let entity_list_ptr =
+                    match read_memory::<usize>(AC_CLIENT_EXE_HMODULE + ENTITY_LIST_OFFSET) {
+                        Ok(ptr) => ptr,
+                        Err(err) => {
+                            println!("Error reading entity list pointer: {}", err);
+                            return ();
+                        }
+                    };
+                ENTITY_LIST_PTR = entity_list_ptr;
+
+                match read_view_matrix(VIEW_MATRIX_ADDR) {
+                    Ok(matrix) => {
+                        VIEW_MATRIX.copy_from_slice(&matrix);
+                    }
+                    Err(err) => {
+                        println!("Error reading view matrix: {}", err);
+                    }
+                };
+
+                for i in 1..NUM_PLAYERS_IN_MATCH {
+                    println!("IMGUI ESP iterating for i={}",i);
+                    let entity_addr =
+                        match Entity::from_addr(ENTITY_LIST_PTR).read_value::<usize>(i * 0x4) {
+                            Ok(addr) => addr,
+                            Err(err) => {
+                                println!("Error reading entity address: {}", err);
+                                continue;
+                            }
+                        };
+
+                    if entity_addr == 0 {
+                        continue;
+                    }
+
+                    let entity = Entity::from_addr(entity_addr);
+
+                    // Check if the entity is alive using the updated is_alive method
+                    if !entity.is_alive() {
+                        continue;
+                    }
+
+                    let mut feet_screen_pos = Vec2 { x: 0.0, y: 0.0 };
+                    let mut head_screen_pos = Vec2 { x: 0.0, y: 0.0 };
+
+                    // Use match expressions for error handling with position and head_position
+                    let entity_position = match entity.position() {
+                        Ok(pos) => pos,
+                        Err(err) => {
+                            println!("Error reading entity position: {}", err);
+                            continue; // Skip to the next entity if there's an error
+                        }
+                    };
+
+                    let entity_head_position = match entity.head_position() {
+                        Ok(pos) => pos,
+                        Err(err) => {
+                            println!("Error reading entity head position: {}", err);
+                            continue; // Skip to the next entity if there's an error
+                        }
+                    };
+
+                    if !world_to_screen(
+                        entity_position,
+                        &mut feet_screen_pos,
+                        VIEW_MATRIX,
+                        GAME_WINDOW_DIMENSIONS.width,
+                        GAME_WINDOW_DIMENSIONS.height,
+                    ) {
+                        continue;
+                    }
+
+                    if !world_to_screen(
+                        entity_head_position,
+                        &mut head_screen_pos,
+                        VIEW_MATRIX,
+                        GAME_WINDOW_DIMENSIONS.width,
+                        GAME_WINDOW_DIMENSIONS.height,
+                    ) {
+                        continue;
+                    }
+
+                    let distance = match (LOCAL_PLAYER.position(), entity.position()) {
+                        (Ok(local_pos), Ok(entity_pos)) => distance::distance_3d(local_pos, entity_pos),
+                        (Err(err), _) | (_, Err(err)) => {
+                            println!("Error reading position: {}", err);
+                            continue; // Skip to the next entity if there's an error
+                        }
+                    };
+
+                    let EntityHeight = head_screen_pos.y - feet_screen_pos.y;
+                    let EntityWidth = EntityHeight / 2.5f32;
+
+                    let ESPBottom = feet_screen_pos.y;
+                    let ESPLeft = feet_screen_pos.x + (EntityWidth / 2.0f32);
+                    let ESPRight = feet_screen_pos.x - (EntityWidth / 2.0f32);
+                    let ESPTop = head_screen_pos.y + (EntityHeight * 0.1f32);
+                    let background_draw_list = ui.get_background_draw_list();
+                    if SETTINGS.deref().is_draw_trace_lines
+                    {
+                        if (SETTINGS.deref().is_draw_trace_lines_ally && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()) ||
+                            (SETTINGS.deref().is_draw_trace_lines_enemy && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                        {
+                            let traceline = background_draw_list.add_line(
+                                [GAME_WINDOW_DIMENSIONS.width as f32 / 2f32, GAME_WINDOW_DIMENSIONS.height as f32],
+                                [(ESPRight + ESPLeft) / 2f32, ESPBottom],
+                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                    SETTINGS.deref().ally_trace_line_color // Color for same team
+                                } else {
+                                    SETTINGS.deref().enemy_trace_line_color // Color for different team (example)
+                                }
+                            ).thickness(SETTINGS.deref().trace_line_thickness);
+                            traceline.build();
+                        }
+                    }
+                    if SETTINGS.deref().is_draw_boxes
+                    {
+                        if (SETTINGS.deref().is_draw_boxes_ally && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()) ||
+                            (SETTINGS.deref().is_draw_boxes_enemy && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                        {
+                            let box_upper_line = background_draw_list.add_line(
+                                [ESPLeft, ESPTop],
+                                [ESPRight, ESPTop],
+                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                    SETTINGS.deref().ally_box_color // Color for same team
+                                } else {
+                                    SETTINGS.deref().enemy_box_color // Color for different team (example)
+                                }
+                            ).thickness(SETTINGS.deref().box_thickness);
+
+                            let box_bottom_line = background_draw_list.add_line(
+                                [ESPLeft, ESPBottom],
+                                [ESPRight, ESPBottom],
+                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                    SETTINGS.deref().ally_box_color // Color for same team
+                                } else {
+                                    SETTINGS.deref().enemy_box_color // Color for different team (example)
+                                }
+                            ).thickness(SETTINGS.deref().box_thickness);
+
+                            let box_left_line = background_draw_list.add_line(
+                                [ESPLeft, ESPTop],
+                                [ESPLeft, ESPBottom],
+                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                    SETTINGS.deref().ally_box_color // Color for same team
+                                } else {
+                                    SETTINGS.deref().enemy_box_color // Color for different team (example)
+                                }
+                            ).thickness(SETTINGS.deref().box_thickness);
+
+                            let box_right_line = background_draw_list.add_line(
+                                [ESPRight, ESPTop],
+                                [ESPRight, ESPBottom],
+                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                    SETTINGS.deref().ally_box_color // Color for same team
+                                } else {
+                                    SETTINGS.deref().enemy_box_color // Color for different team (example)
+                                }
+                            ).thickness(SETTINGS.deref().box_thickness);
+
+                            box_upper_line.build();
+                            box_bottom_line.build();
+                            box_left_line.build();
+                            box_right_line.build();
+                        }
+                    }
+                    if SETTINGS.deref().is_draw_hp_bar
+                    {
+                        if (SETTINGS.deref().is_draw_hp_bar_ally && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()) ||
+                            (SETTINGS.deref().is_draw_hp_bar_enemy && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                        {
+                            if SETTINGS.deref().is_vertical_hp_bar
+                            {
+                                // Calculate the height of the health bar based on the entity's health
+
+                                let HPTop = entity.health().unwrap() as f32 * (ESPTop - ESPBottom) / 100.0f32;
+
+                                // Draw the background for the health bar
+                                let outer_hp_bar = background_draw_list.add_line(
+                                    [ESPLeft - 20.0f32, ESPTop], // Left side of the box
+                                    [ESPLeft - 20.0f32, ESPBottom], // Bottom of the box to the top
+                                    SETTINGS.deref().outer_hp_bar_color // Outer hp bar color
+                                ).thickness(SETTINGS.deref().hp_bar_thickness);
+
+                                // Draw the inner health bar
+                                let inner_hp_bar = background_draw_list.add_line(
+                                    [ESPLeft - 20.0f32, ESPBottom + HPTop], // Start at the top of the inner health bar
+                                    [ESPLeft - 20.0f32, ESPBottom], // End at the bottom of the box
+                                    SETTINGS.deref().inner_hp_bar_color // Inner hp bar color
+                                ).thickness(SETTINGS.deref().hp_bar_thickness);
+
+                                // Build the lines
+                                outer_hp_bar.build();
+                                inner_hp_bar.build();
+                            }
+                            if SETTINGS.deref().is_horizontal_hp_bar
+                            {
+                                let HPRight = entity.health().unwrap() as f32 * (ESPRight - ESPLeft) / 100.0f32;
+                                let inner_hp_bar = background_draw_list.add_line(
+                                    [ESPLeft, ESPBottom + 20.0f32],
+                                    [ESPRight, ESPBottom + 20.0f32],
+                                    SETTINGS.deref().inner_hp_bar_color // Inner hp bar color
+                                ).thickness(SETTINGS.deref().hp_bar_thickness);
+                                let outer_hp_bar = background_draw_list.add_line(
+                                    [ESPLeft + HPRight, ESPBottom + 20.0f32],
+                                    [ESPRight, ESPBottom + 20.0f32],
+                                    SETTINGS.deref().outer_hp_bar_color // Outer hp bar color
+                                ).thickness(SETTINGS.deref().hp_bar_thickness);
+                                inner_hp_bar.build();
+                                outer_hp_bar.build();
+                            }
+                        }
+                    }
+                    if SETTINGS.deref().is_draw_name_text
+                    {
+                        if (SETTINGS.deref().is_draw_name_text_ally && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()) ||
+                            (SETTINGS.deref().is_draw_name_text_enemy && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                        {
+                            background_draw_list.add_text([ESPLeft, ESPTop - 20.0f32],
+                                                                  if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()
+                                                                  {SETTINGS.deref().ally_name_text_color} else {SETTINGS.deref().enemy_name_text_color},
+                                                                    entity.name().unwrap());
+
+                        }
+                    }
+                    if IS_AIMBOT.load(SeqCst) && IS_DRAW_FOV.load(SeqCst) {
+                        let circle = background_draw_list.add_circle([
+                            GAME_WINDOW_DIMENSIONS.width as f32 / 2.0f32,
+                            GAME_WINDOW_DIMENSIONS.height as f32 / 2.0f32],
+                            FOV.load(SeqCst) as f32,
+                            [255.0f32,255.0f32,255.0f32]);
+                        circle.build();
+                    }
+                }
+
+
+
+            }
+
+
             if !IS_SHOW_UI.load(SeqCst) {
                 ui.set_mouse_cursor(None);
                 return;

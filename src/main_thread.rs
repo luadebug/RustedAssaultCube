@@ -7,7 +7,7 @@ use windows::core::PCSTR;
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 use windows::Win32::System::Threading::Sleep;
 
-use crate::esp::esp_entrypoint;
+use crate::entrypoint::entrypoint;
 use crate::ui::RenderLoop;
 use crate::utils::setup_tracing;
 use crate::vars::handles::{CHEAT_DLL_HMODULE, OPENGL32_DLL_HMODULE};
@@ -48,7 +48,7 @@ pub extern "system" fn MainThread(lpReserved: *mut c_void) -> u32 {
         } else {
             println!("[MainThread] HudHook has been injected.");
         }
-        esp_entrypoint().expect("[MainThread] Failed to call esp_entrypoint()");
+        entrypoint().expect("[MainThread] Failed to call esp_entrypoint()");
     }
     return 1;
 }

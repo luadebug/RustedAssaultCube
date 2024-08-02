@@ -17,8 +17,6 @@ mod esp;
 mod offsets;
 mod ui;
 mod utils;
-
-mod aimbot;
 mod angle;
 mod distance;
 mod draw_utils;
@@ -43,6 +41,7 @@ mod window_dimensions;
 mod world_to_screen;
 mod locales;
 mod key_action;
+mod entrypoint;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
