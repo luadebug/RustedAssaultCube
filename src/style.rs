@@ -83,21 +83,21 @@ pub(crate) fn set_style_minty_red(ctx: &mut hudhook::imgui::Context) {
     // Set colors
     use hudhook::imgui::sys::{
         ImGuiCol_Border, ImGuiCol_BorderShadow, ImGuiCol_Button, ImGuiCol_ButtonActive,
-        ImGuiCol_ButtonHovered, ImGuiCol_CheckMark, ImGuiCol_ChildBg, ImGuiCol_FrameBg,
-        ImGuiCol_FrameBgActive, ImGuiCol_FrameBgHovered, ImGuiCol_Header, ImGuiCol_HeaderActive,
-        ImGuiCol_HeaderHovered, ImGuiCol_MenuBarBg, ImGuiCol_PopupBg, ImGuiCol_ResizeGrip,
+        ImGuiCol_ButtonHovered, ImGuiCol_CheckMark, ImGuiCol_ChildBg, ImGuiCol_DragDropTarget,
+        ImGuiCol_FrameBg, ImGuiCol_FrameBgActive, ImGuiCol_FrameBgHovered, ImGuiCol_Header,
+        ImGuiCol_HeaderActive, ImGuiCol_HeaderHovered, ImGuiCol_MenuBarBg,
+        ImGuiCol_ModalWindowDimBg, ImGuiCol_NavHighlight, ImGuiCol_NavWindowingDimBg,
+        ImGuiCol_NavWindowingHighlight, ImGuiCol_PlotHistogram, ImGuiCol_PlotHistogramHovered,
+        ImGuiCol_PlotLines, ImGuiCol_PlotLinesHovered, ImGuiCol_PopupBg, ImGuiCol_ResizeGrip,
         ImGuiCol_ResizeGripActive, ImGuiCol_ResizeGripHovered, ImGuiCol_ScrollbarBg,
         ImGuiCol_ScrollbarGrab, ImGuiCol_ScrollbarGrabActive, ImGuiCol_ScrollbarGrabHovered,
         ImGuiCol_Separator, ImGuiCol_SeparatorActive, ImGuiCol_SeparatorHovered,
         ImGuiCol_SliderGrab, ImGuiCol_SliderGrabActive, ImGuiCol_Tab, ImGuiCol_TabActive,
-        ImGuiCol_TabHovered, ImGuiCol_Text, ImGuiCol_TextDisabled, ImGuiCol_TitleBg,
-        ImGuiCol_TitleBgActive, ImGuiCol_TitleBgCollapsed, ImGuiCol_WindowBg,
-        ImGuiCol_DragDropTarget, ImGuiCol_ModalWindowDimBg, ImGuiCol_NavHighlight,
-        ImGuiCol_NavWindowingDimBg, ImGuiCol_NavWindowingHighlight, ImGuiCol_PlotHistogram,
-        ImGuiCol_PlotHistogramHovered, ImGuiCol_PlotLines, ImGuiCol_PlotLinesHovered,
-        ImGuiCol_TabUnfocused, ImGuiCol_TabUnfocusedActive, ImGuiCol_TableBorderLight,
-        ImGuiCol_TableBorderStrong, ImGuiCol_TableHeaderBg, ImGuiCol_TableRowBg,
-        ImGuiCol_TableRowBgAlt, ImGuiCol_TextSelectedBg
+        ImGuiCol_TabHovered, ImGuiCol_TabUnfocused, ImGuiCol_TabUnfocusedActive,
+        ImGuiCol_TableBorderLight, ImGuiCol_TableBorderStrong, ImGuiCol_TableHeaderBg,
+        ImGuiCol_TableRowBg, ImGuiCol_TableRowBgAlt, ImGuiCol_Text, ImGuiCol_TextDisabled,
+        ImGuiCol_TextSelectedBg, ImGuiCol_TitleBg, ImGuiCol_TitleBgActive,
+        ImGuiCol_TitleBgCollapsed, ImGuiCol_WindowBg,
     };
 
     colors[ImGuiCol_Text as usize] = [0.75, 0.75, 0.75, 1.00];
@@ -156,21 +156,20 @@ pub(crate) fn set_style_minty_red(ctx: &mut hudhook::imgui::Context) {
 }
 
 #[allow(unused)]
-pub(crate) fn set_style_minty_light(ctx: &mut hudhook::imgui::Context)
-{
+pub(crate) fn set_style_minty_light(ctx: &mut hudhook::imgui::Context) {
     ctx.style_mut().use_light_colors();
 
     let style = ctx.style_mut();
     let colors = &mut style.colors;
 
-    use hudhook::imgui::sys::{ImGuiCol_Button, ImGuiCol_ButtonActive, ImGuiCol_ButtonHovered,
-                              ImGuiCol_CheckMark, ImGuiCol_FrameBg, ImGuiCol_FrameBgActive,
-                              ImGuiCol_FrameBgHovered, ImGuiCol_Header, ImGuiCol_HeaderActive,
-                              ImGuiCol_HeaderHovered, ImGuiCol_ResizeGrip,
-                              ImGuiCol_ResizeGripActive, ImGuiCol_ResizeGripHovered,
-                              ImGuiCol_SliderGrab, ImGuiCol_SliderGrabActive, ImGuiCol_Tab,
-                              ImGuiCol_TabActive, ImGuiCol_TabHovered, ImGuiCol_TitleBg,
-                              ImGuiCol_TitleBgActive, ImGuiCol_TitleBgCollapsed};
+    use hudhook::imgui::sys::{
+        ImGuiCol_Button, ImGuiCol_ButtonActive, ImGuiCol_ButtonHovered, ImGuiCol_CheckMark,
+        ImGuiCol_FrameBg, ImGuiCol_FrameBgActive, ImGuiCol_FrameBgHovered, ImGuiCol_Header,
+        ImGuiCol_HeaderActive, ImGuiCol_HeaderHovered, ImGuiCol_ResizeGrip,
+        ImGuiCol_ResizeGripActive, ImGuiCol_ResizeGripHovered, ImGuiCol_SliderGrab,
+        ImGuiCol_SliderGrabActive, ImGuiCol_Tab, ImGuiCol_TabActive, ImGuiCol_TabHovered,
+        ImGuiCol_TitleBg, ImGuiCol_TitleBgActive, ImGuiCol_TitleBgCollapsed,
+    };
 
     colors[ImGuiCol_FrameBg as usize] = [0.25, 0.25, 0.25, 1.00];
     colors[ImGuiCol_FrameBgHovered as usize] = [0.05, 0.90, 0.54, 1.00];
@@ -196,21 +195,20 @@ pub(crate) fn set_style_minty_light(ctx: &mut hudhook::imgui::Context)
 }
 
 #[allow(unused)]
-pub(crate) fn set_style_minty_mint(ctx: &mut hudhook::imgui::Context)
-{
+pub(crate) fn set_style_minty_mint(ctx: &mut hudhook::imgui::Context) {
     ctx.style_mut().use_dark_colors();
 
     let style = ctx.style_mut();
     let colors = &mut style.colors;
 
-    use hudhook::imgui::sys::{ImGuiCol_Button, ImGuiCol_ButtonActive, ImGuiCol_ButtonHovered,
-                              ImGuiCol_CheckMark, ImGuiCol_FrameBg, ImGuiCol_FrameBgActive,
-                              ImGuiCol_FrameBgHovered, ImGuiCol_Header, ImGuiCol_HeaderActive,
-                              ImGuiCol_HeaderHovered, ImGuiCol_ResizeGrip,
-                              ImGuiCol_ResizeGripActive, ImGuiCol_ResizeGripHovered,
-                              ImGuiCol_SliderGrab, ImGuiCol_SliderGrabActive, ImGuiCol_Tab,
-                              ImGuiCol_TabActive, ImGuiCol_TabHovered, ImGuiCol_TitleBg,
-                              ImGuiCol_TitleBgActive, ImGuiCol_TitleBgCollapsed};
+    use hudhook::imgui::sys::{
+        ImGuiCol_Button, ImGuiCol_ButtonActive, ImGuiCol_ButtonHovered, ImGuiCol_CheckMark,
+        ImGuiCol_FrameBg, ImGuiCol_FrameBgActive, ImGuiCol_FrameBgHovered, ImGuiCol_Header,
+        ImGuiCol_HeaderActive, ImGuiCol_HeaderHovered, ImGuiCol_ResizeGrip,
+        ImGuiCol_ResizeGripActive, ImGuiCol_ResizeGripHovered, ImGuiCol_SliderGrab,
+        ImGuiCol_SliderGrabActive, ImGuiCol_Tab, ImGuiCol_TabActive, ImGuiCol_TabHovered,
+        ImGuiCol_TitleBg, ImGuiCol_TitleBgActive, ImGuiCol_TitleBgCollapsed,
+    };
 
     colors[ImGuiCol_FrameBg as usize] = [0.25, 0.25, 0.25, 1.00];
     colors[ImGuiCol_FrameBgHovered as usize] = [0.05, 0.90, 0.54, 1.00];
@@ -234,4 +232,3 @@ pub(crate) fn set_style_minty_mint(ctx: &mut hudhook::imgui::Context)
     colors[ImGuiCol_TabHovered as usize] = [0.00, 0.75, 0.43, 1.00];
     colors[ImGuiCol_TabActive as usize] = [0.00, 0.68, 0.39, 1.00];
 }
-

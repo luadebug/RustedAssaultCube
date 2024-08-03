@@ -52,7 +52,7 @@ pub struct AppSettings {
     pub is_draw_name_text_enemy: bool,
     pub ally_name_text_color: [f32; 3],
     pub enemy_name_text_color: [f32; 3],
-    pub name_text_thickness: f32
+    pub name_text_thickness: f32,
 }
 
 impl AppSettings {
@@ -161,7 +161,7 @@ impl Default for AppSettings {
             is_draw_name_text_enemy: true,
             ally_name_text_color: [0.0f32, 255.0f32, 0.0f32],
             enemy_name_text_color: [255.0f32, 0.0f32, 0.0f32],
-            name_text_thickness: 19.0f32
+            name_text_thickness: 19.0f32,
         }
     }
 }

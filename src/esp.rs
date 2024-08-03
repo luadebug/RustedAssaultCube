@@ -1,5 +1,5 @@
 use windows::Win32::Foundation::{HWND, TRUE};
-use windows::Win32::Graphics::Gdi::{DeleteDC, DeleteObject, HBITMAP, HBRUSH, HDC, ReleaseDC};
+use windows::Win32::Graphics::Gdi::{DeleteDC, DeleteObject, ReleaseDC, HBITMAP, HBRUSH, HDC};
 
 #[allow(unused)]
 unsafe fn esp_cleanup(
@@ -54,4 +54,3 @@ unsafe fn esp_cleanup(
     }
     Ok(())
 }
-

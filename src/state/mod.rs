@@ -16,10 +16,12 @@ pub enum StateCacheType {
 
     /// The cache entry will be invalidated if not accessed within
     /// the target durection.
+    #[allow(unused)]
     Timed(Duration),
 
     /// The state will be removed as soon it get's invalidated.
     /// The update method will only be called once uppon creation.
+    #[allow(unused)]
     Volatile,
 }
 

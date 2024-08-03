@@ -1,19 +1,34 @@
-use std::ffi::c_void;
+use std::ffi::{c_void, CString};
 
+use windows::core::PCSTR;
+use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 use windows::Win32::System::Memory::{
     VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS,
 };
 
 use crate::offsets::offsets::{BRIGHTNESS, SET_BRIGHTNESS};
 use crate::utils::write_memory;
-use crate::vars::handles::AC_CLIENT_EXE_HMODULE;
 
 pub unsafe fn c_brightness() -> *mut usize {
-    unsafe { (AC_CLIENT_EXE_HMODULE + BRIGHTNESS) as *mut usize }
+    unsafe {
+        ({
+            let ac_client_exe_cstring = CString::new("ac_client.exe").unwrap();
+            GetModuleHandleA(PCSTR(ac_client_exe_cstring.as_ptr() as *const u8))
+                .map(|hinstance| hinstance.0 as usize)
+                .expect("[esp] Error getting module handle")
+        } + BRIGHTNESS) as *mut usize
+    }
 }
 
 pub unsafe fn set_brightness() -> *mut usize {
-    unsafe { (AC_CLIENT_EXE_HMODULE + SET_BRIGHTNESS) as *mut usize }
+    unsafe {
+        ({
+            let ac_client_exe_cstring = CString::new("ac_client.exe").unwrap();
+            GetModuleHandleA(PCSTR(ac_client_exe_cstring.as_ptr() as *const u8))
+                .map(|hinstance| hinstance.0 as usize)
+                .expect("[esp] Error getting module handle")
+        } + SET_BRIGHTNESS) as *mut usize
+    }
 }
 
 pub unsafe fn set_brightness_toggle(is_on: bool) {

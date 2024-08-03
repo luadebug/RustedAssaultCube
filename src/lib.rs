@@ -13,35 +13,35 @@ use vars::handles::CHEAT_DLL_HMODULE;
 
 mod main_thread;
 
-mod esp;
-mod offsets;
-mod ui;
-mod utils;
 mod angle;
 mod distance;
 mod draw_utils;
 mod entity;
+mod entrypoint;
+mod esp;
 mod fonts;
 mod game;
 mod get_local_player_hook;
 mod get_window_dimensions;
 mod getclosestentity;
 mod hotkey_widget;
+mod key_action;
+mod locales;
 mod memorypatch;
 mod misc;
+mod offsets;
 mod pattern_mask;
 mod settings;
 mod state;
 mod style;
 mod triggerbot_hook;
+mod ui;
+mod utils;
 mod vars;
 mod vec_structures;
 mod wallhack_hook;
 mod window_dimensions;
 mod world_to_screen;
-mod locales;
-mod key_action;
-mod entrypoint;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]

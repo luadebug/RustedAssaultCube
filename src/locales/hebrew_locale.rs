@@ -23,5 +23,5 @@ pub static HEBREW_LOCALE_VECTOR: [&str; 24] = [
     gnal_tsur!("ערכות נושא"),
     gnal_tsur!("עיצוב נושא"),
     gnal_tsur!("הגדרות"),
-    gnal_tsur!("שפה")
+    gnal_tsur!("שפה"),
 ];

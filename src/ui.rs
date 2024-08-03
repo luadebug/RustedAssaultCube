@@ -6,27 +6,39 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering::SeqCst;
 
 use gnal_tsur::gnal_tsur;
+use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, Io};
 use hudhook::{imgui, MessageFilter, RenderContext};
-use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, ImColor32, Io};
 use once_cell::sync::Lazy;
-use windows::Win32::UI::Input::KeyboardAndMouse::{VK_INSERT};
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_INSERT;
+
 use crate::distance;
 use crate::entity::Entity;
+use crate::game::{set_brightness, set_brightness_toggle};
+use crate::hotkey_widget::{to_win_key, ImGuiKey, KeyboardInputSystem};
 use crate::key_action::aimbot;
-use crate::game::{set_brightness_toggle, set_brightness};
-use crate::hotkey_widget::{ImGuiKey, KeyboardInputSystem, to_win_key};
-use crate::key_action::{KeyAction, toggle_aimbot, toggle_draw_fov, toggle_esp, toggle_fullbright, toggle_infinite_ammo, toggle_infinite_nades, toggle_invulnerability, toggle_maphack, toggle_no_recoil, toggle_no_reload, toggle_rapid_fire, toggle_show_ui, toggle_smooth, toggle_triggerbot, toggle_wallhack};
+use crate::key_action::{
+    toggle_aimbot, toggle_draw_fov, toggle_esp, toggle_fullbright, toggle_infinite_ammo,
+    toggle_infinite_nades, toggle_invulnerability, toggle_maphack, toggle_no_recoil,
+    toggle_no_reload, toggle_rapid_fire, toggle_show_ui, toggle_smooth, toggle_triggerbot,
+    toggle_wallhack, KeyAction,
+};
 use crate::locales::cantonese_locale::CANTONESE_LOCALE_VECTOR;
 use crate::locales::chinese_locale::MANDARIN_LOCALE_VECTOR;
 use crate::locales::english_locale::ENG_LOCALE_VECTOR;
 use crate::locales::hebrew_locale::HEBREW_LOCALE_VECTOR;
 use crate::locales::russian_locale::RUS_LOCALE_VECTOR;
 use crate::locales::ukrainian_locale::UA_LOCALE_VECTOR;
-use crate::offsets::offsets::{ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, VIEW_MATRIX_ADDR};
-use crate::settings::{AppSettings, load_app_settings, save_app_settings};
-use crate::style::{set_style_minty_light, set_style_minty_mint, set_style_minty_red, set_style_unicore};
+use crate::offsets::offsets::{
+    ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, VIEW_MATRIX_ADDR,
+};
+use crate::settings::{load_app_settings, save_app_settings, AppSettings};
+use crate::style::{
+    set_style_minty_light, set_style_minty_mint, set_style_minty_red, set_style_unicore,
+};
 use crate::utils::{read_memory, read_view_matrix, run_cmd};
-use crate::vars::game_vars::{ENTITY_LIST_PTR, FOV, LOCAL_PLAYER, NUM_PLAYERS_IN_MATCH, SMOOTH, TRIGGER_DELAY, VIEW_MATRIX};
+use crate::vars::game_vars::{
+    ENTITY_LIST_PTR, FOV, LOCAL_PLAYER, NUM_PLAYERS_IN_MATCH, SMOOTH, TRIGGER_DELAY, VIEW_MATRIX,
+};
 use crate::vars::handles::{AC_CLIENT_EXE_HMODULE, GAME_WINDOW_DIMENSIONS};
 use crate::vars::mem_patches::{
     MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH,
@@ -39,20 +51,17 @@ use crate::vars::ui_vars::{
 use crate::vec_structures::Vec2;
 use crate::world_to_screen::world_to_screen;
 
-pub static mut KEY_INPUT_SYSTEM: KeyboardInputSystem =  unsafe { KeyboardInputSystem::new() };
-static mut IS_NEED_CHANGE_THEME:bool = true;
-static mut IS_NEED_CHANGE_LOCALE:bool = true;
+pub static mut KEY_INPUT_SYSTEM: KeyboardInputSystem = KeyboardInputSystem::new();
+static mut IS_NEED_CHANGE_THEME: bool = true;
+static mut IS_NEED_CHANGE_LOCALE: bool = true;
 static mut CURRENT_LOCALE_VECTOR: [&str; 24] = ENG_LOCALE_VECTOR;
 
 pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
     unsafe {
         let set_cl = app_settings.clone();
 
-
-        if let Some(tab) = ui.tab_bar("Main Menu Tab Bar")
-        {
-            if let Some(item) = ui.tab_item(CURRENT_LOCALE_VECTOR[1])
-            {
+        if let Some(tab) = ui.tab_bar("Main Menu Tab Bar") {
+            if let Some(item) = ui.tab_item(CURRENT_LOCALE_VECTOR[1]) {
                 if ui.checkbox(CURRENT_LOCALE_VECTOR[2], IS_WALLHACK.get_mut()) {
                     println!("Set WallHack Toggle to {}", IS_WALLHACK.load(SeqCst));
                 }
@@ -257,7 +266,12 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                 ) {
                     println!("Binded Triggerbot toggle key!");
                 }
-                if ui.slider(CURRENT_LOCALE_VECTOR[16], 100, 1000, TRIGGER_DELAY.get_mut()) {
+                if ui.slider(
+                    CURRENT_LOCALE_VECTOR[16],
+                    100,
+                    1000,
+                    TRIGGER_DELAY.get_mut(),
+                ) {
                     println!("Set Triggerbot Delay to {} ms", TRIGGER_DELAY.load(SeqCst));
                 }
                 if ui.checkbox(CURRENT_LOCALE_VECTOR[17], IS_MAPHACK.get_mut()) {
@@ -311,200 +325,284 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                 }
                 item.end();
             }
-            if let Some(item) = ui.tab_item(CURRENT_LOCALE_VECTOR[20])
-            {
-                if ui.list_box(CURRENT_LOCALE_VECTOR[21],
-                               &mut app_settings.theme_id,
-                               &["Unicore", "Minty Red", "Minty Light", "Minty Mint"],
-                               10i32)
-                {
+            if let Some(item) = ui.tab_item(CURRENT_LOCALE_VECTOR[20]) {
+                if ui.list_box(
+                    CURRENT_LOCALE_VECTOR[21],
+                    &mut app_settings.theme_id,
+                    &["Unicore", "Minty Red", "Minty Light", "Minty Mint"],
+                    10i32,
+                ) {
                     println!("Going to change theme to {}", app_settings.theme_id);
                     IS_NEED_CHANGE_THEME = true;
                 }
                 item.end();
             }
-            if let Some(item) = ui.tab_item(CURRENT_LOCALE_VECTOR[22])
-            {
-                if ui.list_box(CURRENT_LOCALE_VECTOR[23],
-                               &mut app_settings.language_id,
-                               &["English", "Русский", "Українська",
-                                   "中文（简体）", "粵語",
-                                   gnal_tsur!("עברית")],
-                               10i32)
-                {
+            if let Some(item) = ui.tab_item(CURRENT_LOCALE_VECTOR[22]) {
+                if ui.list_box(
+                    CURRENT_LOCALE_VECTOR[23],
+                    &mut app_settings.language_id,
+                    &[
+                        "English",
+                        "Русский",
+                        "Українська",
+                        "中文（简体）",
+                        "粵語",
+                        gnal_tsur!("עברית"),
+                    ],
+                    10i32,
+                ) {
                     println!("Going to change locale to {}", app_settings.language_id);
                     IS_NEED_CHANGE_LOCALE = true;
                 }
                 item.end();
             }
-            if let Some(item) = ui.tab_item("ESP settings")
-            {
-                if let Some(tab_esp) = ui.tab_bar("ESP Config Tab Bar")
-                {
-                    if let Some(tab_esp_item) = ui.tab_item("ESP traceline settings")
-                    {
+            if let Some(item) = ui.tab_item("ESP settings") {
+                if let Some(tab_esp) = ui.tab_bar("ESP Config Tab Bar") {
+                    if let Some(tab_esp_item) = ui.tab_item("ESP traceline settings") {
                         if ui.checkbox("Draw tracelines", &mut SETTINGS.is_draw_trace_lines) {
-                            println!("Set ESP drawing tracelines Toggle to {}",
-                                     SETTINGS.deref().is_draw_trace_lines);
+                            println!(
+                                "Set ESP drawing tracelines Toggle to {}",
+                                SETTINGS.deref().is_draw_trace_lines
+                            );
                         }
-                        if SETTINGS.is_draw_trace_lines
-                        {
-                            if ui.slider("Traceline thickness",
-                                         0.1f32, 10.0f32,
-                                         &mut SETTINGS.trace_line_thickness)
-                            {
-                                println!("Set traceline thickness {}", SETTINGS.deref().trace_line_thickness);
+                        if SETTINGS.is_draw_trace_lines {
+                            if ui.slider(
+                                "Traceline thickness",
+                                0.1f32,
+                                10.0f32,
+                                &mut SETTINGS.trace_line_thickness,
+                            ) {
+                                println!(
+                                    "Set traceline thickness {}",
+                                    SETTINGS.deref().trace_line_thickness
+                                );
                             }
-                            if ui.checkbox("Show ally traceline", &mut SETTINGS.is_draw_trace_lines_ally)
-                            {
-                                println!("Toggled show ally traceline {}", SETTINGS.deref().is_draw_trace_lines_ally);
+                            if ui.checkbox(
+                                "Show ally traceline",
+                                &mut SETTINGS.is_draw_trace_lines_ally,
+                            ) {
+                                println!(
+                                    "Toggled show ally traceline {}",
+                                    SETTINGS.deref().is_draw_trace_lines_ally
+                                );
                             }
-                            if ui.color_edit3("Ally traceline color",
-                                                &mut SETTINGS.ally_trace_line_color)
-                            {
-                                println!("Set color for ally traceline {:?}",
-                                         SETTINGS.deref().ally_trace_line_color);
+                            if ui.color_edit3(
+                                "Ally traceline color",
+                                &mut SETTINGS.ally_trace_line_color,
+                            ) {
+                                println!(
+                                    "Set color for ally traceline {:?}",
+                                    SETTINGS.deref().ally_trace_line_color
+                                );
                             }
-                            if ui.checkbox("Show enemy traceline", &mut SETTINGS.is_draw_trace_lines_enemy)
-                            {
-                                println!("Toggled show enemy traceline {}", SETTINGS.deref().is_draw_trace_lines_enemy);
+                            if ui.checkbox(
+                                "Show enemy traceline",
+                                &mut SETTINGS.is_draw_trace_lines_enemy,
+                            ) {
+                                println!(
+                                    "Toggled show enemy traceline {}",
+                                    SETTINGS.deref().is_draw_trace_lines_enemy
+                                );
                             }
-                            if ui.color_edit3("Enemy traceline color",
-                                                &mut SETTINGS.enemy_trace_line_color)
-                            {
-                                println!("Set color for enemy traceline {:?}",
-                                         SETTINGS.enemy_trace_line_color);
+                            if ui.color_edit3(
+                                "Enemy traceline color",
+                                &mut SETTINGS.enemy_trace_line_color,
+                            ) {
+                                println!(
+                                    "Set color for enemy traceline {:?}",
+                                    SETTINGS.enemy_trace_line_color
+                                );
                             }
                         }
                         tab_esp_item.end();
                     }
-                    if let Some(tab_esp_item) = ui.tab_item("ESP boxes settings")
-                    {
-                        if ui.checkbox("Draw boxes", &mut SETTINGS.is_draw_boxes)
-                        {
-                            println!("Toggled show enemy traceline {}", SETTINGS.deref().is_draw_boxes);
+                    if let Some(tab_esp_item) = ui.tab_item("ESP boxes settings") {
+                        if ui.checkbox("Draw boxes", &mut SETTINGS.is_draw_boxes) {
+                            println!(
+                                "Toggled show enemy traceline {}",
+                                SETTINGS.deref().is_draw_boxes
+                            );
                         }
 
-                        if SETTINGS.is_draw_boxes
-                        {
-                            if ui.slider("Boxes thickness",
-                                         0.1f32, 10.0f32,
-                                         &mut SETTINGS.box_thickness)
-                            {
+                        if SETTINGS.is_draw_boxes {
+                            if ui.slider(
+                                "Boxes thickness",
+                                0.1f32,
+                                10.0f32,
+                                &mut SETTINGS.box_thickness,
+                            ) {
                                 println!("Set box thickness {}", SETTINGS.deref().box_thickness);
                             }
-                            if ui.checkbox("Show ally boxes", &mut SETTINGS.is_draw_boxes_ally)
-                            {
-                                println!("Toggled show ally boxes {}", SETTINGS.deref().is_draw_boxes_ally);
+                            if ui.checkbox("Show ally boxes", &mut SETTINGS.is_draw_boxes_ally) {
+                                println!(
+                                    "Toggled show ally boxes {}",
+                                    SETTINGS.deref().is_draw_boxes_ally
+                                );
                             }
-                            if ui.color_edit3("Ally boxes color",
-                                              &mut SETTINGS.ally_box_color)
-                            {
-                                println!("Set color for ally boxes {:?}",
-                                         SETTINGS.deref().ally_box_color);
+                            if ui.color_edit3("Ally boxes color", &mut SETTINGS.ally_box_color) {
+                                println!(
+                                    "Set color for ally boxes {:?}",
+                                    SETTINGS.deref().ally_box_color
+                                );
                             }
-                            if ui.checkbox("Show enemy boxes", &mut SETTINGS.is_draw_boxes_enemy)
-                            {
-                                println!("Toggled show enemy boxes {}", SETTINGS.deref().is_draw_boxes_enemy);
+                            if ui.checkbox("Show enemy boxes", &mut SETTINGS.is_draw_boxes_enemy) {
+                                println!(
+                                    "Toggled show enemy boxes {}",
+                                    SETTINGS.deref().is_draw_boxes_enemy
+                                );
                             }
-                            if ui.color_edit3("Enemy boxes color",
-                                              &mut SETTINGS.enemy_box_color)
-                            {
-                                println!("Set color for enemy boxes {:?}",
-                                         SETTINGS.enemy_box_color);
+                            if ui.color_edit3("Enemy boxes color", &mut SETTINGS.enemy_box_color) {
+                                println!(
+                                    "Set color for enemy boxes {:?}",
+                                    SETTINGS.enemy_box_color
+                                );
                             }
                         }
-
 
                         tab_esp_item.end();
                     }
-                    if let Some(tab_esp_item) = ui.tab_item("ESP health bar settings")
-                    {
-                        if ui.checkbox("Draw health bars", &mut SETTINGS.is_draw_hp_bar)
-                        {
-                            println!("Toggled show enemy traceline {}", SETTINGS.deref().is_draw_boxes);
+                    if let Some(tab_esp_item) = ui.tab_item("ESP health bar settings") {
+                        if ui.checkbox("Draw health bars", &mut SETTINGS.is_draw_hp_bar) {
+                            println!(
+                                "Toggled show enemy traceline {}",
+                                SETTINGS.deref().is_draw_boxes
+                            );
                         }
 
-                        if SETTINGS.is_draw_hp_bar
-                        {
-                            if ui.checkbox("Show horizontal hp bar", &mut SETTINGS.is_horizontal_hp_bar)
-                            {
-                                println!("Toggled horizontal hp bar {}", SETTINGS.deref().is_horizontal_hp_bar);
+                        if SETTINGS.is_draw_hp_bar {
+                            if ui.checkbox(
+                                "Show horizontal hp bar",
+                                &mut SETTINGS.is_horizontal_hp_bar,
+                            ) {
+                                println!(
+                                    "Toggled horizontal hp bar {}",
+                                    SETTINGS.deref().is_horizontal_hp_bar
+                                );
                             }
                             ui.same_line();
                             if ui.checkbox("Show vertical hp bar", &mut SETTINGS.is_vertical_hp_bar)
                             {
-                                println!("Toggled vertical hp bar {}", SETTINGS.deref().is_vertical_hp_bar);
+                                println!(
+                                    "Toggled vertical hp bar {}",
+                                    SETTINGS.deref().is_vertical_hp_bar
+                                );
                             }
-                            if ui.slider("Health bar thickness",
-                                         0.1f32, 10.0f32,
-                                         &mut SETTINGS.hp_bar_thickness)
-                            {
-                                println!("Set health bar thickness {}", SETTINGS.deref().hp_bar_thickness);
+                            if ui.slider(
+                                "Health bar thickness",
+                                0.1f32,
+                                10.0f32,
+                                &mut SETTINGS.hp_bar_thickness,
+                            ) {
+                                println!(
+                                    "Set health bar thickness {}",
+                                    SETTINGS.deref().hp_bar_thickness
+                                );
                             }
-                            if ui.checkbox("Show ally health bar", &mut SETTINGS.is_draw_hp_bar_ally)
+                            if ui
+                                .checkbox("Show ally health bar", &mut SETTINGS.is_draw_hp_bar_ally)
                             {
-                                println!("Toggled show ally health bar {}", SETTINGS.deref().is_draw_hp_bar_ally);
+                                println!(
+                                    "Toggled show ally health bar {}",
+                                    SETTINGS.deref().is_draw_hp_bar_ally
+                                );
                             }
                             ui.same_line();
-                            if ui.checkbox("Show enemy health bar", &mut SETTINGS.is_draw_hp_bar_enemy)
-                            {
-                                println!("Toggled show enemy health bar {}", SETTINGS.deref().is_draw_hp_bar_enemy);
+                            if ui.checkbox(
+                                "Show enemy health bar",
+                                &mut SETTINGS.is_draw_hp_bar_enemy,
+                            ) {
+                                println!(
+                                    "Toggled show enemy health bar {}",
+                                    SETTINGS.deref().is_draw_hp_bar_enemy
+                                );
                             }
-                            if ui.color_edit3("Inner health bar color",
-                                              &mut SETTINGS.inner_hp_bar_color)
-                            {
-                                println!("Set color for inner health bar {:?}",
-                                         SETTINGS.deref().inner_hp_bar_color);
+                            if ui.color_edit3(
+                                "Inner health bar color",
+                                &mut SETTINGS.inner_hp_bar_color,
+                            ) {
+                                println!(
+                                    "Set color for inner health bar {:?}",
+                                    SETTINGS.deref().inner_hp_bar_color
+                                );
                             }
 
-                            if ui.color_edit3("Outer health bar color",
-                                              &mut SETTINGS.outer_hp_bar_color)
-                            {
-                                println!("Set color for outer health bar {:?}",
-                                         SETTINGS.outer_hp_bar_color);
+                            if ui.color_edit3(
+                                "Outer health bar color",
+                                &mut SETTINGS.outer_hp_bar_color,
+                            ) {
+                                println!(
+                                    "Set color for outer health bar {:?}",
+                                    SETTINGS.outer_hp_bar_color
+                                );
                             }
                         }
                         tab_esp_item.end();
                     }
-                    if let Some(tab_esp_item) = ui.tab_item("ESP text settings")
-                    {
-                        if ui.checkbox("Draw name text", &mut SETTINGS.is_draw_name_text)
-                        {
-                            println!("Toggled draw name text to {}", SETTINGS.deref().is_draw_name_text)
+                    if let Some(tab_esp_item) = ui.tab_item("ESP text settings") {
+                        if ui.checkbox("Draw name text", &mut SETTINGS.is_draw_name_text) {
+                            println!(
+                                "Toggled draw name text to {}",
+                                SETTINGS.deref().is_draw_name_text
+                            )
                         }
-                        if SETTINGS.deref().is_draw_name_text
-                        {
-                            if ui.checkbox("Draw ally name text", &mut SETTINGS.is_draw_name_text_ally)
-                            {
-                                println!("Toggled draw ally name text to {}", SETTINGS.deref().is_draw_name_text_ally)
+                        if SETTINGS.deref().is_draw_name_text {
+                            if ui.checkbox(
+                                "Draw ally name text",
+                                &mut SETTINGS.is_draw_name_text_ally,
+                            ) {
+                                println!(
+                                    "Toggled draw ally name text to {}",
+                                    SETTINGS.deref().is_draw_name_text_ally
+                                )
                             }
                             ui.same_line();
-                            if ui.checkbox("Draw enemy name text", &mut SETTINGS.is_draw_name_text_enemy)
-                            {
-                                println!("Toggled draw enemy name text to {}", SETTINGS.deref().is_draw_name_text_enemy)
+                            if ui.checkbox(
+                                "Draw enemy name text",
+                                &mut SETTINGS.is_draw_name_text_enemy,
+                            ) {
+                                println!(
+                                    "Toggled draw enemy name text to {}",
+                                    SETTINGS.deref().is_draw_name_text_enemy
+                                )
                             }
-                            if ui.slider("Name text size", 10.0f32, 60.0f32, &mut SETTINGS.name_text_thickness)
-                            {
-                                println!("Set name text size to {}", SETTINGS.deref().name_text_thickness)
+                            if ui.slider(
+                                "Name text size",
+                                10.0f32,
+                                60.0f32,
+                                &mut SETTINGS.name_text_thickness,
+                            ) {
+                                println!(
+                                    "Set name text size to {}",
+                                    SETTINGS.deref().name_text_thickness
+                                )
                             }
-                            if ui.color_edit3("Ally name text color", &mut SETTINGS.ally_name_text_color)
-                            {
-                                println!("Set ally name text color to {:?}", SETTINGS.ally_name_text_color);
+                            if ui.color_edit3(
+                                "Ally name text color",
+                                &mut SETTINGS.ally_name_text_color,
+                            ) {
+                                println!(
+                                    "Set ally name text color to {:?}",
+                                    SETTINGS.ally_name_text_color
+                                );
                             }
-                            if ui.color_edit3("Enemy name text color", &mut SETTINGS.enemy_name_text_color)
-                            {
-                                println!("Set ally name text color to {:?}", SETTINGS.enemy_name_text_color);
+                            if ui.color_edit3(
+                                "Enemy name text color",
+                                &mut SETTINGS.enemy_name_text_color,
+                            ) {
+                                println!(
+                                    "Set ally name text color to {:?}",
+                                    SETTINGS.enemy_name_text_color
+                                );
                             }
                         }
                         tab_esp_item.end();
                     }
                     tab_esp.end();
                 }
+                item.end();
             }
             tab.end();
         }
-
     }
 }
 
@@ -547,8 +645,6 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
         _ctx: &mut Context,
         _render_context: &'a mut dyn RenderContext,
     ) {
-
-
         _ctx.set_ini_filename(None);
 
         unsafe {
@@ -574,28 +670,74 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
         _render_context: &'a mut dyn RenderContext,
     ) {
         unsafe {
-
             let key_actions: Vec<KeyAction> = vec![
-                KeyAction { key: VK_INSERT.0 as usize, action: toggle_show_ui },
-                KeyAction { key: to_win_key(SETTINGS.deref().wallhack_key.as_ref().unwrap().key).0 as usize, action: toggle_wallhack },
-                KeyAction { key: to_win_key(SETTINGS.deref().esp_key.as_ref().unwrap().key).0 as usize, action: toggle_esp },
-                KeyAction { key: to_win_key(SETTINGS.deref().inf_nade.as_ref().unwrap().key).0 as usize, action: toggle_infinite_nades },
-                KeyAction { key: to_win_key(SETTINGS.deref().no_reload.as_ref().unwrap().key).0 as usize, action: toggle_no_reload },
-                KeyAction { key: to_win_key(SETTINGS.deref().invul.as_ref().unwrap().key).0 as usize, action: toggle_invulnerability },
-                KeyAction { key: to_win_key(SETTINGS.deref().inf_ammo.as_ref().unwrap().key).0 as usize, action: toggle_infinite_ammo },
-                KeyAction { key: to_win_key(SETTINGS.deref().no_recoil.as_ref().unwrap().key).0 as usize, action: toggle_no_recoil },
-                KeyAction { key: to_win_key(SETTINGS.deref().rapid_fire.as_ref().unwrap().key).0 as usize, action: toggle_rapid_fire },
-                KeyAction { key: to_win_key(SETTINGS.deref().aimbot.as_ref().unwrap().key).0 as usize, action: toggle_aimbot },
-                KeyAction { key: to_win_key(SETTINGS.deref().aim_draw_fov.as_ref().unwrap().key).0 as usize, action: toggle_draw_fov },
-                KeyAction { key: to_win_key(SETTINGS.deref().aim_smooth.as_ref().unwrap().key).0 as usize, action: toggle_smooth },
-                KeyAction { key: to_win_key(SETTINGS.deref().trigger_bot.as_ref().unwrap().key).0 as usize, action: toggle_triggerbot },
-                KeyAction { key: to_win_key(SETTINGS.deref().maphack.as_ref().unwrap().key).0 as usize, action: toggle_maphack },
-                KeyAction { key: to_win_key(SETTINGS.deref().fullbright.as_ref().unwrap().key).0 as usize, action: toggle_fullbright },
-                KeyAction { key: to_win_key(SETTINGS.deref().aim_key.as_ref().unwrap().key).0 as usize, action: aimbot}
+                KeyAction {
+                    key: VK_INSERT.0 as usize,
+                    action: Box::new(move || toggle_show_ui(IS_SHOW_UI.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().wallhack_key.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_wallhack(IS_WALLHACK.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().esp_key.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_esp(IS_ESP.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().inf_nade.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_infinite_nades(IS_GRENADES_INFINITE.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().no_reload.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_no_reload(IS_NO_RELOAD.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().invul.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_invulnerability(IS_INVULNERABLE.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().inf_ammo.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_infinite_ammo(IS_INFINITE_AMMO.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().no_recoil.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_no_recoil(IS_NO_RECOIL.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().rapid_fire.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_rapid_fire(IS_RAPID_FIRE.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().aimbot.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_aimbot(IS_AIMBOT.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().aim_draw_fov.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_draw_fov(IS_DRAW_FOV.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().aim_smooth.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_smooth(IS_SMOOTH.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().trigger_bot.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_triggerbot(IS_TRIGGERBOT.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().maphack.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_maphack(IS_MAPHACK.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().fullbright.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || toggle_fullbright(IS_FULLBRIGHT.get_mut())),
+                },
+                KeyAction {
+                    key: to_win_key(SETTINGS.deref().aim_key.as_ref().unwrap().key).0 as usize,
+                    action: Box::new(move || aimbot(IS_AIMBOT.get_mut())),
+                },
             ];
 
-
-            KEY_INPUT_SYSTEM.update(_ctx.io_mut());
+            KEY_INPUT_SYSTEM.update(_ctx.io_mut(), IS_SHOW_UI.load(SeqCst));
 
             for key_action in key_actions {
                 match KEY_INPUT_SYSTEM.key_states[key_action.key] {
@@ -604,37 +746,52 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                 }
             }
 
-            if IS_NEED_CHANGE_THEME
-            {
-                match SETTINGS.deref_mut().theme_id
-                {
-                    0 => {set_style_unicore(_ctx);},
-                    1 => {set_style_minty_red(_ctx);}
-                    2 => {set_style_minty_light(_ctx);}
-                    3 => {set_style_minty_mint(_ctx);}
-                    _ => {set_style_unicore(_ctx);}
+            if IS_NEED_CHANGE_THEME {
+                match SETTINGS.deref_mut().theme_id {
+                    0 => {
+                        set_style_unicore(_ctx);
+                    }
+                    1 => {
+                        set_style_minty_red(_ctx);
+                    }
+                    2 => {
+                        set_style_minty_light(_ctx);
+                    }
+                    3 => {
+                        set_style_minty_mint(_ctx);
+                    }
+                    _ => {
+                        set_style_unicore(_ctx);
+                    }
                 }
                 println!("Changed theme to {}", SETTINGS.deref_mut().theme_id);
                 IS_NEED_CHANGE_THEME = false;
             }
-            if IS_NEED_CHANGE_LOCALE
-            {
-                match SETTINGS.deref_mut().language_id
-                {
-                    0 => {CURRENT_LOCALE_VECTOR = ENG_LOCALE_VECTOR;},
-                    1 => {CURRENT_LOCALE_VECTOR = RUS_LOCALE_VECTOR;},
-                    2 => {CURRENT_LOCALE_VECTOR = UA_LOCALE_VECTOR;},
-                    3 => {CURRENT_LOCALE_VECTOR = MANDARIN_LOCALE_VECTOR;},
-                    4 => {CURRENT_LOCALE_VECTOR = CANTONESE_LOCALE_VECTOR;},
-                    5 => {CURRENT_LOCALE_VECTOR = HEBREW_LOCALE_VECTOR},
-                    _ => {CURRENT_LOCALE_VECTOR = ENG_LOCALE_VECTOR;},
+            if IS_NEED_CHANGE_LOCALE {
+                match SETTINGS.deref_mut().language_id {
+                    0 => {
+                        CURRENT_LOCALE_VECTOR = ENG_LOCALE_VECTOR;
+                    }
+                    1 => {
+                        CURRENT_LOCALE_VECTOR = RUS_LOCALE_VECTOR;
+                    }
+                    2 => {
+                        CURRENT_LOCALE_VECTOR = UA_LOCALE_VECTOR;
+                    }
+                    3 => {
+                        CURRENT_LOCALE_VECTOR = MANDARIN_LOCALE_VECTOR;
+                    }
+                    4 => {
+                        CURRENT_LOCALE_VECTOR = CANTONESE_LOCALE_VECTOR;
+                    }
+                    5 => CURRENT_LOCALE_VECTOR = HEBREW_LOCALE_VECTOR,
+                    _ => {
+                        CURRENT_LOCALE_VECTOR = ENG_LOCALE_VECTOR;
+                    }
                 }
                 println!("Changed locale to {}", SETTINGS.deref_mut().language_id);
                 IS_NEED_CHANGE_LOCALE = false;
             }
-
-
-
 
             _ctx.io_mut().mouse_draw_cursor = IS_SHOW_UI.load(SeqCst);
             _ctx.io_mut().want_set_mouse_pos = IS_SHOW_UI.load(SeqCst);
@@ -655,15 +812,8 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
     }
 
     fn render(&mut self, ui: &mut imgui::Ui) {
-
-
         unsafe {
-
             if IS_ESP.load(SeqCst) {
-
-
-
-
                 let local_player_addr =
                     match read_memory::<usize>(AC_CLIENT_EXE_HMODULE + LOCAL_PLAYER_OFFSET) {
                         Ok(addr) => addr,
@@ -675,15 +825,15 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
 
                 LOCAL_PLAYER = Entity::from_addr(local_player_addr);
 
-                let num_players_in_match =
-                    match read_memory::<i32>(AC_CLIENT_EXE_HMODULE + NUMBER_OF_PLAYERS_IN_MATCH_OFFSET)
-                    {
-                        Ok(num) => num as usize,
-                        Err(err) => {
-                            println!("Error reading number of players in match: {}", err);
-                            return ();
-                        }
-                    };
+                let num_players_in_match = match read_memory::<i32>(
+                    AC_CLIENT_EXE_HMODULE + NUMBER_OF_PLAYERS_IN_MATCH_OFFSET,
+                ) {
+                    Ok(num) => num as usize,
+                    Err(err) => {
+                        println!("Error reading number of players in match: {}", err);
+                        return ();
+                    }
+                };
                 NUM_PLAYERS_IN_MATCH = num_players_in_match;
 
                 let entity_list_ptr =
@@ -706,7 +856,6 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                 };
 
                 for i in 1..NUM_PLAYERS_IN_MATCH {
-                    println!("IMGUI ESP iterating for i={}",i);
                     let entity_addr =
                         match Entity::from_addr(ENTITY_LIST_PTR).read_value::<usize>(i * 0x4) {
                             Ok(addr) => addr,
@@ -766,84 +915,101 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                     ) {
                         continue;
                     }
-
+                    #[allow(unused)]
                     let distance = match (LOCAL_PLAYER.position(), entity.position()) {
-                        (Ok(local_pos), Ok(entity_pos)) => distance::distance_3d(local_pos, entity_pos),
+                        (Ok(local_pos), Ok(entity_pos)) => {
+                            distance::distance_3d(local_pos, entity_pos)
+                        }
                         (Err(err), _) | (_, Err(err)) => {
                             println!("Error reading position: {}", err);
                             continue; // Skip to the next entity if there's an error
                         }
                     };
 
-                    let EntityHeight = head_screen_pos.y - feet_screen_pos.y;
-                    let EntityWidth = EntityHeight / 2.5f32;
+                    let entity_height = head_screen_pos.y - feet_screen_pos.y;
+                    let entity_width = entity_height / 2.5f32;
 
-                    let ESPBottom = feet_screen_pos.y;
-                    let ESPLeft = feet_screen_pos.x + (EntityWidth / 2.0f32);
-                    let ESPRight = feet_screen_pos.x - (EntityWidth / 2.0f32);
-                    let ESPTop = head_screen_pos.y + (EntityHeight * 0.1f32);
+                    let espbottom = feet_screen_pos.y;
+                    let espleft = feet_screen_pos.x + (entity_width / 2.0f32);
+                    let espright = feet_screen_pos.x - (entity_width / 2.0f32);
+                    let esptop = head_screen_pos.y + (entity_height * 0.1f32);
                     let background_draw_list = ui.get_background_draw_list();
-                    if SETTINGS.deref().is_draw_trace_lines
-                    {
-                        if (SETTINGS.deref().is_draw_trace_lines_ally && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()) ||
-                            (SETTINGS.deref().is_draw_trace_lines_enemy && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                    if SETTINGS.deref().is_draw_trace_lines {
+                        if (SETTINGS.deref().is_draw_trace_lines_ally
+                            && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap())
+                            || (SETTINGS.deref().is_draw_trace_lines_enemy
+                                && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
                         {
-                            let traceline = background_draw_list.add_line(
-                                [GAME_WINDOW_DIMENSIONS.width as f32 / 2f32, GAME_WINDOW_DIMENSIONS.height as f32],
-                                [(ESPRight + ESPLeft) / 2f32, ESPBottom],
-                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
-                                    SETTINGS.deref().ally_trace_line_color // Color for same team
-                                } else {
-                                    SETTINGS.deref().enemy_trace_line_color // Color for different team (example)
-                                }
-                            ).thickness(SETTINGS.deref().trace_line_thickness);
+                            let traceline = background_draw_list
+                                .add_line(
+                                    [
+                                        GAME_WINDOW_DIMENSIONS.width as f32 / 2f32,
+                                        GAME_WINDOW_DIMENSIONS.height as f32,
+                                    ],
+                                    [(espright + espleft) / 2f32, espbottom],
+                                    if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                        SETTINGS.deref().ally_trace_line_color // Color for same team
+                                    } else {
+                                        SETTINGS.deref().enemy_trace_line_color // Color for different team (example)
+                                    },
+                                )
+                                .thickness(SETTINGS.deref().trace_line_thickness);
                             traceline.build();
                         }
                     }
-                    if SETTINGS.deref().is_draw_boxes
-                    {
-                        if (SETTINGS.deref().is_draw_boxes_ally && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()) ||
-                            (SETTINGS.deref().is_draw_boxes_enemy && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                    if SETTINGS.deref().is_draw_boxes {
+                        if (SETTINGS.deref().is_draw_boxes_ally
+                            && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap())
+                            || (SETTINGS.deref().is_draw_boxes_enemy
+                                && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
                         {
-                            let box_upper_line = background_draw_list.add_line(
-                                [ESPLeft, ESPTop],
-                                [ESPRight, ESPTop],
-                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
-                                    SETTINGS.deref().ally_box_color // Color for same team
-                                } else {
-                                    SETTINGS.deref().enemy_box_color // Color for different team (example)
-                                }
-                            ).thickness(SETTINGS.deref().box_thickness);
+                            let box_upper_line = background_draw_list
+                                .add_line(
+                                    [espleft, esptop],
+                                    [espright, esptop],
+                                    if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                        SETTINGS.deref().ally_box_color // Color for same team
+                                    } else {
+                                        SETTINGS.deref().enemy_box_color // Color for different team (example)
+                                    },
+                                )
+                                .thickness(SETTINGS.deref().box_thickness);
 
-                            let box_bottom_line = background_draw_list.add_line(
-                                [ESPLeft, ESPBottom],
-                                [ESPRight, ESPBottom],
-                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
-                                    SETTINGS.deref().ally_box_color // Color for same team
-                                } else {
-                                    SETTINGS.deref().enemy_box_color // Color for different team (example)
-                                }
-                            ).thickness(SETTINGS.deref().box_thickness);
+                            let box_bottom_line = background_draw_list
+                                .add_line(
+                                    [espleft, espbottom],
+                                    [espright, espbottom],
+                                    if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                        SETTINGS.deref().ally_box_color // Color for same team
+                                    } else {
+                                        SETTINGS.deref().enemy_box_color // Color for different team (example)
+                                    },
+                                )
+                                .thickness(SETTINGS.deref().box_thickness);
 
-                            let box_left_line = background_draw_list.add_line(
-                                [ESPLeft, ESPTop],
-                                [ESPLeft, ESPBottom],
-                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
-                                    SETTINGS.deref().ally_box_color // Color for same team
-                                } else {
-                                    SETTINGS.deref().enemy_box_color // Color for different team (example)
-                                }
-                            ).thickness(SETTINGS.deref().box_thickness);
+                            let box_left_line = background_draw_list
+                                .add_line(
+                                    [espleft, esptop],
+                                    [espleft, espbottom],
+                                    if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                        SETTINGS.deref().ally_box_color // Color for same team
+                                    } else {
+                                        SETTINGS.deref().enemy_box_color // Color for different team (example)
+                                    },
+                                )
+                                .thickness(SETTINGS.deref().box_thickness);
 
-                            let box_right_line = background_draw_list.add_line(
-                                [ESPRight, ESPTop],
-                                [ESPRight, ESPBottom],
-                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
-                                    SETTINGS.deref().ally_box_color // Color for same team
-                                } else {
-                                    SETTINGS.deref().enemy_box_color // Color for different team (example)
-                                }
-                            ).thickness(SETTINGS.deref().box_thickness);
+                            let box_right_line = background_draw_list
+                                .add_line(
+                                    [espright, esptop],
+                                    [espright, espbottom],
+                                    if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                        SETTINGS.deref().ally_box_color // Color for same team
+                                    } else {
+                                        SETTINGS.deref().enemy_box_color // Color for different team (example)
+                                    },
+                                )
+                                .thickness(SETTINGS.deref().box_thickness);
 
                             box_upper_line.build();
                             box_bottom_line.build();
@@ -851,79 +1017,93 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                             box_right_line.build();
                         }
                     }
-                    if SETTINGS.deref().is_draw_hp_bar
-                    {
-                        if (SETTINGS.deref().is_draw_hp_bar_ally && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()) ||
-                            (SETTINGS.deref().is_draw_hp_bar_enemy && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                    if SETTINGS.deref().is_draw_hp_bar {
+                        if (SETTINGS.deref().is_draw_hp_bar_ally
+                            && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap())
+                            || (SETTINGS.deref().is_draw_hp_bar_enemy
+                                && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
                         {
-                            if SETTINGS.deref().is_vertical_hp_bar
-                            {
+                            if SETTINGS.deref().is_vertical_hp_bar {
                                 // Calculate the height of the health bar based on the entity's health
 
-                                let HPTop = entity.health().unwrap() as f32 * (ESPTop - ESPBottom) / 100.0f32;
+                                let hptop = entity.health().unwrap() as f32 * (esptop - espbottom)
+                                    / 100.0f32;
 
                                 // Draw the background for the health bar
-                                let outer_hp_bar = background_draw_list.add_line(
-                                    [ESPLeft - 20.0f32, ESPTop], // Left side of the box
-                                    [ESPLeft - 20.0f32, ESPBottom], // Bottom of the box to the top
-                                    SETTINGS.deref().outer_hp_bar_color // Outer hp bar color
-                                ).thickness(SETTINGS.deref().hp_bar_thickness);
+                                let outer_hp_bar = background_draw_list
+                                    .add_line(
+                                        [espleft - 20.0f32, esptop],         // Left side of the box
+                                        [espleft - 20.0f32, espbottom], // Bottom of the box to the top
+                                        SETTINGS.deref().outer_hp_bar_color, // Outer hp bar color
+                                    )
+                                    .thickness(SETTINGS.deref().hp_bar_thickness);
 
                                 // Draw the inner health bar
-                                let inner_hp_bar = background_draw_list.add_line(
-                                    [ESPLeft - 20.0f32, ESPBottom + HPTop], // Start at the top of the inner health bar
-                                    [ESPLeft - 20.0f32, ESPBottom], // End at the bottom of the box
-                                    SETTINGS.deref().inner_hp_bar_color // Inner hp bar color
-                                ).thickness(SETTINGS.deref().hp_bar_thickness);
+                                let inner_hp_bar = background_draw_list
+                                    .add_line(
+                                        [espleft - 20.0f32, espbottom + hptop], // Start at the top of the inner health bar
+                                        [espleft - 20.0f32, espbottom], // End at the bottom of the box
+                                        SETTINGS.deref().inner_hp_bar_color, // Inner hp bar color
+                                    )
+                                    .thickness(SETTINGS.deref().hp_bar_thickness);
 
                                 // Build the lines
                                 outer_hp_bar.build();
                                 inner_hp_bar.build();
                             }
-                            if SETTINGS.deref().is_horizontal_hp_bar
-                            {
-                                let HPRight = entity.health().unwrap() as f32 * (ESPRight - ESPLeft) / 100.0f32;
-                                let inner_hp_bar = background_draw_list.add_line(
-                                    [ESPLeft, ESPBottom + 20.0f32],
-                                    [ESPRight, ESPBottom + 20.0f32],
-                                    SETTINGS.deref().inner_hp_bar_color // Inner hp bar color
-                                ).thickness(SETTINGS.deref().hp_bar_thickness);
-                                let outer_hp_bar = background_draw_list.add_line(
-                                    [ESPLeft + HPRight, ESPBottom + 20.0f32],
-                                    [ESPRight, ESPBottom + 20.0f32],
-                                    SETTINGS.deref().outer_hp_bar_color // Outer hp bar color
-                                ).thickness(SETTINGS.deref().hp_bar_thickness);
+                            if SETTINGS.deref().is_horizontal_hp_bar {
+                                let hpright = entity.health().unwrap() as f32
+                                    * (espright - espleft)
+                                    / 100.0f32;
+                                let inner_hp_bar = background_draw_list
+                                    .add_line(
+                                        [espleft, espbottom + 20.0f32],
+                                        [espright, espbottom + 20.0f32],
+                                        SETTINGS.deref().inner_hp_bar_color, // Inner hp bar color
+                                    )
+                                    .thickness(SETTINGS.deref().hp_bar_thickness);
+                                let outer_hp_bar = background_draw_list
+                                    .add_line(
+                                        [espleft + hpright, espbottom + 20.0f32],
+                                        [espright, espbottom + 20.0f32],
+                                        SETTINGS.deref().outer_hp_bar_color, // Outer hp bar color
+                                    )
+                                    .thickness(SETTINGS.deref().hp_bar_thickness);
                                 inner_hp_bar.build();
                                 outer_hp_bar.build();
                             }
                         }
                     }
-                    if SETTINGS.deref().is_draw_name_text
-                    {
-                        if (SETTINGS.deref().is_draw_name_text_ally && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()) ||
-                            (SETTINGS.deref().is_draw_name_text_enemy && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                    if SETTINGS.deref().is_draw_name_text {
+                        if (SETTINGS.deref().is_draw_name_text_ally
+                            && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap())
+                            || (SETTINGS.deref().is_draw_name_text_enemy
+                                && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
                         {
-                            background_draw_list.add_text([ESPLeft, ESPTop - 20.0f32],
-                                                                  if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap()
-                                                                  {SETTINGS.deref().ally_name_text_color} else {SETTINGS.deref().enemy_name_text_color},
-                                                                    entity.name().unwrap());
-
+                            background_draw_list.add_text(
+                                [espleft, esptop - 20.0f32],
+                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                    SETTINGS.deref().ally_name_text_color
+                                } else {
+                                    SETTINGS.deref().enemy_name_text_color
+                                },
+                                entity.name().unwrap(),
+                            );
                         }
                     }
                     if IS_AIMBOT.load(SeqCst) && IS_DRAW_FOV.load(SeqCst) {
-                        let circle = background_draw_list.add_circle([
-                            GAME_WINDOW_DIMENSIONS.width as f32 / 2.0f32,
-                            GAME_WINDOW_DIMENSIONS.height as f32 / 2.0f32],
+                        let circle = background_draw_list.add_circle(
+                            [
+                                GAME_WINDOW_DIMENSIONS.width as f32 / 2.0f32,
+                                GAME_WINDOW_DIMENSIONS.height as f32 / 2.0f32,
+                            ],
                             FOV.load(SeqCst) as f32,
-                            [255.0f32,255.0f32,255.0f32]);
+                            [255.0f32, 255.0f32, 255.0f32],
+                        );
                         circle.build();
                     }
                 }
-
-
-
             }
-
 
             if !IS_SHOW_UI.load(SeqCst) {
                 ui.set_mouse_cursor(None);
@@ -947,69 +1127,71 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
 
             let custom_font = ui.push_font(font_id);
 
-            if let Some(wt) = ui.window(CURRENT_LOCALE_VECTOR[0])
+            if let Some(wt) = ui
+                .window(CURRENT_LOCALE_VECTOR[0])
                 .title_bar(true)
                 .size([1000.0, 700.0], imgui::Condition::FirstUseEver)
                 .position([300.0, 300.0], imgui::Condition::FirstUseEver)
                 .begin()
-                {
-                    unsafe { on_frame(ui, SETTINGS.deref_mut()); }
-                    custom_font.pop();
-                    wt.end();
-                };
+            {
+                on_frame(ui, SETTINGS.deref_mut());
+                custom_font.pop();
+                wt.end();
+            };
         }
     }
 }
-
-
-
-
-
 
 unsafe fn init_fonts(_ctx: &mut Context) {
     unsafe {
         let fonts = _ctx.fonts();
         let fonts_config_small = FontConfig {
-            glyph_ranges:FontGlyphRanges::cyrillic(),
-            ..Default::default()};
+            glyph_ranges: FontGlyphRanges::cyrillic(),
+            ..Default::default()
+        };
         let fonts_config_normal = FontConfig {
-            glyph_ranges:FontGlyphRanges::cyrillic(),
-            ..Default::default()};
+            glyph_ranges: FontGlyphRanges::cyrillic(),
+            ..Default::default()
+        };
         let fonts_config_big = FontConfig {
-            glyph_ranges:FontGlyphRanges::cyrillic(),
-            ..Default::default()};
+            glyph_ranges: FontGlyphRanges::cyrillic(),
+            ..Default::default()
+        };
 
         let fonts_config_small_cn = FontConfig {
-            glyph_ranges:FontGlyphRanges::chinese_full(),
-            ..Default::default()};
+            glyph_ranges: FontGlyphRanges::chinese_full(),
+            ..Default::default()
+        };
         let fonts_config_normal_cn = FontConfig {
-            glyph_ranges:FontGlyphRanges::chinese_full(),
-            ..Default::default()};
+            glyph_ranges: FontGlyphRanges::chinese_full(),
+            ..Default::default()
+        };
         let fonts_config_big_cn = FontConfig {
-            glyph_ranges:FontGlyphRanges::chinese_full(),
-            ..Default::default()};
+            glyph_ranges: FontGlyphRanges::chinese_full(),
+            ..Default::default()
+        };
 
         let fonts_config_small_hebrew = FontConfig {
-          glyph_ranges:FontGlyphRanges::from_slice(&[
-              0x0590, 0x05FF, // Main Hebrew block
-              0xFB1D, 0xFB4F, // Extended Hebrew characters
-              0,               // Zero-termination
-          ]),
-          ..Default::default()
-        };
-        let fonts_config_normal_hebrew = FontConfig {
-            glyph_ranges:FontGlyphRanges::from_slice(&[
+            glyph_ranges: FontGlyphRanges::from_slice(&[
                 0x0590, 0x05FF, // Main Hebrew block
                 0xFB1D, 0xFB4F, // Extended Hebrew characters
-                0,               // Zero-termination
+                0,      // Zero-termination
+            ]),
+            ..Default::default()
+        };
+        let fonts_config_normal_hebrew = FontConfig {
+            glyph_ranges: FontGlyphRanges::from_slice(&[
+                0x0590, 0x05FF, // Main Hebrew block
+                0xFB1D, 0xFB4F, // Extended Hebrew characters
+                0,      // Zero-termination
             ]),
             ..Default::default()
         };
         let fonts_config_big_hebrew = FontConfig {
-            glyph_ranges:FontGlyphRanges::from_slice(&[
+            glyph_ranges: FontGlyphRanges::from_slice(&[
                 0x0590, 0x05FF, // Main Hebrew block
                 0xFB1D, 0xFB4F, // Extended Hebrew characters
-                0,               // Zero-termination
+                0,      // Zero-termination
             ]),
             ..Default::default()
         };
@@ -1027,8 +1209,9 @@ unsafe fn init_fonts(_ctx: &mut Context) {
 
         let mut hebrew_font_file = File::open(&hebrew_font_file_path).unwrap();
         let mut hebrew_font_file_bytes = Vec::new();
-        hebrew_font_file.read_to_end(&mut hebrew_font_file_bytes).unwrap();
-
+        hebrew_font_file
+            .read_to_end(&mut hebrew_font_file_bytes)
+            .unwrap();
 
         FONTS_STORAGE = Some(FontIDs {
             small: fonts.add_font(&[
@@ -1065,9 +1248,7 @@ unsafe fn init_fonts(_ctx: &mut Context) {
                     config: Some(fonts_config_normal_hebrew),
                 },
             ]),
-            big:
-
-                fonts.add_font(&[
+            big: fonts.add_font(&[
                 FontSource::TtfData {
                     data: &crate::fonts::graffiti_font::GRAFFITI, // &crate::fonts::clash_font::CLASH,
                     size_pixels: 24.,
