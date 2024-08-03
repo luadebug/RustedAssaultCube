@@ -9,7 +9,7 @@ use crate::utils::{read_memory, write_memory};
 use crate::vars::game_vars::{LOCAL_PLAYER, SMOOTH};
 use crate::vars::handles::AC_CLIENT_EXE_HMODULE;
 use crate::vars::mem_patches::{
-    MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH,
+    MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RADAR_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH,
 };
 use crate::vars::ui_vars::IS_SMOOTH;
 use crate::vec_structures::Vec3;
@@ -97,10 +97,16 @@ pub unsafe fn toggle_maphack(toggle: &mut bool) {
             MAPHACK_MEMORY_PATCH
                 .patch_memory()
                 .expect("[ui] Failed to patch memory Maphack");
+            RADAR_MEMORY_PATCH
+                .patch_memory()
+                .expect("[ui] Failed to patch memory Radar");
         } else {
             MAPHACK_MEMORY_PATCH
                 .unpatch_memory()
                 .expect("[ui] Failed to unpatch memory Maphack");
+            RADAR_MEMORY_PATCH
+                .unpatch_memory()
+                .expect("[ui] Failed to unpatch memory Radar");
         }
     }
 }
