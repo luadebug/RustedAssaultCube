@@ -42,6 +42,7 @@ mod vec_structures;
 mod wallhack_hook;
 mod window_dimensions;
 mod world_to_screen;
+mod esp_gdi;
 
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]

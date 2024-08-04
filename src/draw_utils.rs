@@ -1,4 +1,4 @@
-use std::ffi::CString;
+/*use std::ffi::CString;
 
 use windows::core::PCSTR;
 use windows::Win32::Foundation::{GetLastError, COLORREF, RECT};
@@ -166,3 +166,4 @@ pub unsafe fn draw_circle(hdc: HDC, center: (f32, f32), radius: f32, color: COLO
         let _ = DeleteObject(brush);
     }
 }
+*/

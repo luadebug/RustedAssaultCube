@@ -224,11 +224,6 @@ pub fn render_button_key(
         "None".to_string()
     };
 
-    /*        if !label.starts_with("##") {
-        ui.text(label);
-        ui.same_line();
-    }*/
-
     let mut updated = false;
     if optional {
         if ui.button_with_size(&button_label, [size[0] - 35.0, size[1]]) {
@@ -246,11 +241,10 @@ pub fn render_button_key(
                 //*key = None;
             }
         });
-    } else {
-        if ui.button_with_size(&button_label, size) {
+    } else if ui.button_with_size(&button_label, size) {
             ui.open_popup(label);
         }
-    }
+
 
     ui.modal_popup_config(label)
         .inputs(true)

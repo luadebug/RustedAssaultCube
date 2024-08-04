@@ -1,15 +1,12 @@
-use std::ptr::null_mut;
-use std::sync::atomic::Ordering::SeqCst;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::Ordering::SeqCst;
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
-use ilhook::x86::{CallbackOption, HookFlags, HookType, Hooker, Registers};
+use ilhook::x86::{CallbackOption, Hooker, HookFlags, HookType, Registers};
 use windows::Win32::Foundation::GetLastError;
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_MOUSE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSE_EVENT_FLAGS,
-};
+use windows::Win32::UI::Input::KeyboardAndMouse::{INPUT, INPUT_0, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEINPUT, SendInput};
 
 use crate::entity::Entity;
 use crate::pattern_mask::PatternMask;
@@ -31,7 +28,7 @@ pub(crate) unsafe extern "cdecl" fn get_crosshair_entity(reg: *mut Registers, _:
                     return;
                 }
                 CURRENT_CROSSHAIR_ENTITY_ADDR = reg_val.eax as *mut usize;
-                if CURRENT_CROSSHAIR_ENTITY_ADDR == null_mut() {
+                if CURRENT_CROSSHAIR_ENTITY_ADDR.is_null() {
                     return;
                 }
 
@@ -65,14 +62,19 @@ pub(crate) unsafe extern "cdecl" fn get_crosshair_entity(reg: *mut Registers, _:
     }
 }
 unsafe fn trigger_bot() {
-    let mut input: INPUT = INPUT::default();
-    input.r#type = INPUT_MOUSE;
-    input.Anonymous.mi.dx = 0;
-    input.Anonymous.mi.dy = 0;
-    input.Anonymous.mi.mouseData = 0;
-    input.Anonymous.mi.dwFlags = MOUSE_EVENT_FLAGS(0);
-    input.Anonymous.mi.time = 0;
-    input.Anonymous.mi.dwExtraInfo = 0;
+    let input: INPUT = INPUT {
+        r#type: INPUT_MOUSE,
+        Anonymous: INPUT_0 {
+            mi: MOUSEINPUT {
+                dx: 0,
+                dy: 0,
+                mouseData: 0,
+                dwFlags: MOUSE_EVENT_FLAGS(0),
+                time: 0,
+                dwExtraInfo: 0,
+            },
+        },
+    };
 
     // Use a mutex to synchronize access to the input variable
     let input_mutex = Arc::new(Mutex::new(input));
@@ -115,7 +117,7 @@ pub fn setup_trigger_bot() {
 
         let trigger_bot_aob = find_pattern(
             "ac_client.exe",
-            &*pattern_mask.aob_pattern,
+            &pattern_mask.aob_pattern,
             &pattern_mask.mask_to_string(),
         );
 

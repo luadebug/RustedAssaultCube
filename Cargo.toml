@@ -8,8 +8,13 @@ authors = ["luadebug Lin Evelynn lin@sz.cn.eu.org"]
 publish = false
 
 [dependencies]
-windows = { git = "https://github.com/microsoft/windows-rs", features = ["Win32_System_Console", "Win32_System_SystemServices", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_Security", "Win32_System_Memory", "Win32_System_Diagnostics", "Win32_System_Diagnostics_Debug", "Win32_Graphics", "Win32_Graphics_OpenGL", "Win32_UI", "Win32_UI_Input", "Win32_UI_Input_KeyboardAndMouse", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_Globalization", "Win32_System_ProcessStatus"] }
-hudhook = { git = "https://github.com/veeenu/hudhook/", features = ["opengl3", "imgui-freetype"] }
+windows = { git = "https://github.com/microsoft/windows-rs", features = ["Win32_System_Console",
+    "Win32_System_SystemServices", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_Security",
+    "Win32_System_Memory", "Win32_System_Diagnostics", "Win32_System_Diagnostics_Debug", "Win32_Graphics",
+     "Win32_UI", "Win32_UI_Input", "Win32_UI_Input_KeyboardAndMouse", "Win32_Graphics_Gdi",
+    "Win32_UI_WindowsAndMessaging", "Win32_System_ProcessStatus"] }
+hudhook = { git = "https://github.com/veeenu/hudhook/", features = ["opengl3", "imgui-freetype",
+                                                                    "imgui-docking", "imgui-tables-api"] }
 tracing-subscriber = "0.3.18"
 once_cell = "1.19.0"
 ilhook = "2.1.1"
@@ -20,6 +25,7 @@ serde_yml = "0.0.11"
 gnal_tsur = "0.1.0"
 pkg-config = "0.3.30"
 imgui-sys = { version = "0.12.0", features = ["use-vcpkg"] }
+lazy_static = "1.5.0"
 
 [lib]
 crate-type = ["cdylib"]

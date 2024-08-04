@@ -5,7 +5,7 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 
 use crate::distance::distance_2d;
 use crate::entity::Entity;
-use crate::offsets::offsets::{
+use crate::offsets::{
     ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, VIEW_MATRIX_ADDR,
 };
 use crate::utils::{read_memory, read_view_matrix};

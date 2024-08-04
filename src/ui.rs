@@ -6,32 +6,32 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering::SeqCst;
 
 use gnal_tsur::gnal_tsur;
-use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, Io};
 use hudhook::{imgui, MessageFilter, RenderContext};
+use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, Io};
 use once_cell::sync::Lazy;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_INSERT;
 
 use crate::distance;
 use crate::entity::Entity;
 use crate::game::{set_brightness, set_brightness_toggle};
-use crate::hotkey_widget::{to_win_key, ImGuiKey, KeyboardInputSystem};
-use crate::key_action::aimbot;
+use crate::hotkey_widget::{ImGuiKey, KeyboardInputSystem, to_win_key};
 use crate::key_action::{
-    toggle_aimbot, toggle_draw_fov, toggle_esp, toggle_fullbright, toggle_infinite_ammo,
-    toggle_infinite_nades, toggle_invulnerability, toggle_maphack, toggle_no_recoil,
-    toggle_no_reload, toggle_rapid_fire, toggle_show_ui, toggle_smooth, toggle_triggerbot,
-    toggle_wallhack, KeyAction,
+    KeyAction, toggle_aimbot, toggle_draw_fov, toggle_esp, toggle_fullbright,
+    toggle_infinite_ammo, toggle_infinite_nades, toggle_invulnerability, toggle_maphack,
+    toggle_no_recoil, toggle_no_reload, toggle_rapid_fire, toggle_show_ui, toggle_smooth,
+    toggle_triggerbot, toggle_wallhack,
 };
+use crate::key_action::aimbot;
 use crate::locales::cantonese_locale::CANTONESE_LOCALE_VECTOR;
 use crate::locales::chinese_locale::MANDARIN_LOCALE_VECTOR;
 use crate::locales::english_locale::ENG_LOCALE_VECTOR;
 use crate::locales::hebrew_locale::HEBREW_LOCALE_VECTOR;
 use crate::locales::russian_locale::RUS_LOCALE_VECTOR;
 use crate::locales::ukrainian_locale::UA_LOCALE_VECTOR;
-use crate::offsets::offsets::{
+use crate::offsets::{
     ENTITY_LIST_OFFSET, LOCAL_PLAYER_OFFSET, NUMBER_OF_PLAYERS_IN_MATCH_OFFSET, VIEW_MATRIX_ADDR,
 };
-use crate::settings::{load_app_settings, save_app_settings, AppSettings};
+use crate::settings::{AppSettings, load_app_settings, save_app_settings};
 use crate::style::{
     set_style_minty_light, set_style_minty_mint, set_style_minty_red, set_style_unicore,
 };
@@ -40,9 +40,7 @@ use crate::vars::game_vars::{
     ENTITY_LIST_PTR, FOV, LOCAL_PLAYER, NUM_PLAYERS_IN_MATCH, SMOOTH, TRIGGER_DELAY, VIEW_MATRIX,
 };
 use crate::vars::handles::{AC_CLIENT_EXE_HMODULE, GAME_WINDOW_DIMENSIONS};
-use crate::vars::mem_patches::{
-    MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH,
-};
+use crate::vars::mem_patches::{MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RADAR_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH};
 use crate::vars::ui_vars::{
     IS_AIMBOT, IS_DRAW_FOV, IS_ESP, IS_FULLBRIGHT, IS_GRENADES_INFINITE, IS_INFINITE_AMMO,
     IS_INVULNERABLE, IS_MAPHACK, IS_NO_RECOIL, IS_NO_RELOAD, IS_RAPID_FIRE, IS_SHOW_UI, IS_SMOOTH,
@@ -55,6 +53,9 @@ pub static mut KEY_INPUT_SYSTEM: KeyboardInputSystem = KeyboardInputSystem::new(
 static mut IS_NEED_CHANGE_THEME: bool = true;
 static mut IS_NEED_CHANGE_LOCALE: bool = true;
 static mut CURRENT_LOCALE_VECTOR: [&str; 24] = ENG_LOCALE_VECTOR;
+
+
+
 
 pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
     unsafe {
@@ -152,11 +153,11 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                 if ui.checkbox(CURRENT_LOCALE_VECTOR[8], IS_NO_RECOIL.get_mut()) {
                     println!("Set No Recoil Toggle to {}", IS_NO_RECOIL.load(SeqCst));
                     if IS_NO_RECOIL.load(SeqCst) {
-                        NO_RECOIL_MEMORY_PATCH
+                        NO_RECOIL_MEMORY_PATCH.lock().unwrap()
                             .patch_memory()
                             .expect("[ui] Failed to patch memory no recoil");
                     } else {
-                        NO_RECOIL_MEMORY_PATCH
+                        NO_RECOIL_MEMORY_PATCH.lock().unwrap()
                             .unpatch_memory()
                             .expect("[ui] Failed to unpatch memory no recoil");
                     }
@@ -174,11 +175,11 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                 if ui.checkbox(CURRENT_LOCALE_VECTOR[9], IS_RAPID_FIRE.get_mut()) {
                     println!("Set Rapid Fire Toggle to {}", IS_RAPID_FIRE.load(SeqCst));
                     if IS_RAPID_FIRE.load(SeqCst) {
-                        RAPID_FIRE_MEMORY_PATCH
+                        RAPID_FIRE_MEMORY_PATCH.lock().unwrap()
                             .patch_memory()
                             .expect("[ui] Failed to patch memory rapid fire");
                     } else {
-                        RAPID_FIRE_MEMORY_PATCH
+                        RAPID_FIRE_MEMORY_PATCH.lock().unwrap()
                             .unpatch_memory()
                             .expect("[ui] Failed to unpatch memory rapid fire");
                     }
@@ -277,11 +278,17 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                 if ui.checkbox(CURRENT_LOCALE_VECTOR[17], IS_MAPHACK.get_mut()) {
                     println!("Set Maphack Toggle to {}", IS_MAPHACK.load(SeqCst));
                     if IS_MAPHACK.load(SeqCst) {
-                        MAPHACK_MEMORY_PATCH
+                        RADAR_MEMORY_PATCH.lock().unwrap()
+                            .patch_memory()
+                            .expect("[ui] Failed to patch memory radarhack");
+                        MAPHACK_MEMORY_PATCH.lock().unwrap()
                             .patch_memory()
                             .expect("[ui] Failed to patch memory maphack");
                     } else {
-                        MAPHACK_MEMORY_PATCH
+                        RADAR_MEMORY_PATCH.lock().unwrap()
+                            .unpatch_memory()
+                            .expect("[ui] Failed to unpatch memory radarhack");
+                        MAPHACK_MEMORY_PATCH.lock().unwrap()
                             .unpatch_memory()
                             .expect("[ui] Failed to unpatch memory maphack");
                     }
@@ -615,6 +622,13 @@ static mut FONTS_STORAGE: Option<FontIDs> = Some(FontIDs {
     normal: unsafe { mem::zeroed() },
     big: unsafe { mem::zeroed() },
 });
+
+static mut FONTS_STORAGE2: Option<FontIDs> = Some(FontIDs {
+    small: unsafe { mem::zeroed() },
+    normal: unsafe { mem::zeroed() },
+    big: unsafe { mem::zeroed() },
+});
+
 pub struct RenderLoop;
 impl RenderLoop {
     pub fn new() -> Self {
@@ -701,11 +715,13 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                 },
                 KeyAction {
                     key: to_win_key(SETTINGS.deref().no_recoil.as_ref().unwrap().key).0 as usize,
-                    action: Box::new(move || toggle_no_recoil(IS_NO_RECOIL.get_mut())),
+                    action: Box::new(move || toggle_no_recoil(IS_NO_RECOIL.get_mut(),
+                                                              NO_RECOIL_MEMORY_PATCH.get_mut().unwrap())),
                 },
                 KeyAction {
                     key: to_win_key(SETTINGS.deref().rapid_fire.as_ref().unwrap().key).0 as usize,
-                    action: Box::new(move || toggle_rapid_fire(IS_RAPID_FIRE.get_mut())),
+                    action: Box::new(move || toggle_rapid_fire(IS_RAPID_FIRE.get_mut(),
+                                                               RAPID_FIRE_MEMORY_PATCH.get_mut().unwrap())),
                 },
                 KeyAction {
                     key: to_win_key(SETTINGS.deref().aimbot.as_ref().unwrap().key).0 as usize,
@@ -725,7 +741,9 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                 },
                 KeyAction {
                     key: to_win_key(SETTINGS.deref().maphack.as_ref().unwrap().key).0 as usize,
-                    action: Box::new(move || toggle_maphack(IS_MAPHACK.get_mut())),
+                    action: Box::new(move || toggle_maphack(IS_MAPHACK.get_mut(),
+                                                            RADAR_MEMORY_PATCH.get_mut().unwrap(),
+                                                            MAPHACK_MEMORY_PATCH.get_mut().unwrap())),
                 },
                 KeyAction {
                     key: to_win_key(SETTINGS.deref().fullbright.as_ref().unwrap().key).0 as usize,
@@ -796,7 +814,6 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
             _ctx.io_mut().mouse_draw_cursor = IS_SHOW_UI.load(SeqCst);
             _ctx.io_mut().want_set_mouse_pos = IS_SHOW_UI.load(SeqCst);
             _ctx.io_mut().want_capture_mouse = IS_SHOW_UI.load(SeqCst);
-            return;
         }
     }
 
@@ -804,7 +821,7 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
         unsafe {
             if IS_SHOW_UI.load(SeqCst) {
                 MessageFilter::InputAll |  // Filter any input that being sent in-game
-                MessageFilter::WindowFocus // Filter game cursor midpoint window focus
+                    MessageFilter::WindowFocus // Filter game cursor midpoint window focus
             } else {
                 MessageFilter::WindowFocus // Filter game cursor midpoint window focus
             }
@@ -819,7 +836,7 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                         Ok(addr) => addr,
                         Err(err) => {
                             println!("Error reading local player address: {}", err);
-                            return ();
+                            return;
                         }
                     };
 
@@ -831,7 +848,7 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                     Ok(num) => num as usize,
                     Err(err) => {
                         println!("Error reading number of players in match: {}", err);
-                        return ();
+                        return;
                     }
                 };
                 NUM_PLAYERS_IN_MATCH = num_players_in_match;
@@ -841,7 +858,7 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                         Ok(ptr) => ptr,
                         Err(err) => {
                             println!("Error reading entity list pointer: {}", err);
-                            return ();
+                            return;
                         }
                     };
                 ENTITY_LIST_PTR = entity_list_ptr;
@@ -934,11 +951,11 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                     let espright = feet_screen_pos.x - (entity_width / 2.0f32);
                     let esptop = head_screen_pos.y + (entity_height * 0.1f32);
                     let background_draw_list = ui.get_background_draw_list();
-                    if SETTINGS.deref().is_draw_trace_lines {
-                        if (SETTINGS.deref().is_draw_trace_lines_ally
+                    if SETTINGS.deref().is_draw_trace_lines &&
+                        ((SETTINGS.deref().is_draw_trace_lines_ally
                             && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap())
                             || (SETTINGS.deref().is_draw_trace_lines_enemy
-                                && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                            && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap()))
                         {
                             let traceline = background_draw_list
                                 .add_line(
@@ -956,12 +973,11 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                                 .thickness(SETTINGS.deref().trace_line_thickness);
                             traceline.build();
                         }
-                    }
-                    if SETTINGS.deref().is_draw_boxes {
-                        if (SETTINGS.deref().is_draw_boxes_ally
+
+                    if SETTINGS.deref().is_draw_boxes && ((SETTINGS.deref().is_draw_boxes_ally
                             && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap())
                             || (SETTINGS.deref().is_draw_boxes_enemy
-                                && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                            && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap()))
                         {
                             let box_upper_line = background_draw_list
                                 .add_line(
@@ -1016,12 +1032,11 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                             box_left_line.build();
                             box_right_line.build();
                         }
-                    }
-                    if SETTINGS.deref().is_draw_hp_bar {
-                        if (SETTINGS.deref().is_draw_hp_bar_ally
+
+                    if SETTINGS.deref().is_draw_hp_bar && ((SETTINGS.deref().is_draw_hp_bar_ally
                             && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap())
                             || (SETTINGS.deref().is_draw_hp_bar_enemy
-                                && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                            && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap()))
                         {
                             if SETTINGS.deref().is_vertical_hp_bar {
                                 // Calculate the height of the health bar based on the entity's health
@@ -1073,15 +1088,36 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                                 outer_hp_bar.build();
                             }
                         }
-                    }
-                    if SETTINGS.deref().is_draw_name_text {
-                        if (SETTINGS.deref().is_draw_name_text_ally
+
+                    if SETTINGS.deref().is_draw_name_text && ((SETTINGS.deref().is_draw_name_text_ally
                             && LOCAL_PLAYER.team().unwrap() == entity.team().unwrap())
                             || (SETTINGS.deref().is_draw_name_text_enemy
-                                && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap())
+                            && LOCAL_PLAYER.team().unwrap() != entity.team().unwrap()))
                         {
+                            /*                                sys::ImDrawList_AddText_Vec2(
+                                    sys::igGetBackgroundDrawList(),
+                                    ImVec2::from([espleft, esptop - 20.0f32]),
+                                    0xFF0000FFu32,
+                                    start,
+                                    end,
+                                );*/
+                            let width = ui.io().display_size[0];
+                            let font_id = FONTS_STORAGE2
+                                .as_mut()
+                                .map(|fonts| {
+                                    if width > 2000. {
+                                        fonts.big
+                                    } else if width > 1200. {
+                                        fonts.normal
+                                    } else {
+                                        fonts.small
+                                    }
+                                })
+                                .unwrap();
+
+                            let custom_font = ui.push_font(font_id);
                             background_draw_list.add_text(
-                                [espleft, esptop - 20.0f32],
+                                [espleft, esptop - 40.0f32],
                                 if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
                                     SETTINGS.deref().ally_name_text_color
                                 } else {
@@ -1089,8 +1125,9 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                                 },
                                 entity.name().unwrap(),
                             );
+                            custom_font.pop();
                         }
-                    }
+
                     if IS_AIMBOT.load(SeqCst) && IS_DRAW_FOV.load(SeqCst) {
                         let circle = background_draw_list.add_circle(
                             [
@@ -1142,6 +1179,7 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
     }
 }
 
+
 unsafe fn init_fonts(_ctx: &mut Context) {
     unsafe {
         let fonts = _ctx.fonts();
@@ -1155,6 +1193,22 @@ unsafe fn init_fonts(_ctx: &mut Context) {
         };
         let fonts_config_big = FontConfig {
             glyph_ranges: FontGlyphRanges::cyrillic(),
+            ..Default::default()
+        };
+
+        let fonts_config_small2 = FontConfig {
+            glyph_ranges: FontGlyphRanges::cyrillic(),
+            size_pixels: 50.0f32,
+            ..Default::default()
+        };
+        let fonts_config_normal2 = FontConfig {
+            glyph_ranges: FontGlyphRanges::cyrillic(),
+            size_pixels: 50.0f32,
+            ..Default::default()
+        };
+        let fonts_config_big2 = FontConfig {
+            glyph_ranges: FontGlyphRanges::cyrillic(),
+            size_pixels: 50.0f32,
             ..Default::default()
         };
 
@@ -1212,7 +1266,29 @@ unsafe fn init_fonts(_ctx: &mut Context) {
         hebrew_font_file
             .read_to_end(&mut hebrew_font_file_bytes)
             .unwrap();
-
+        FONTS_STORAGE2 = Some(FontIDs {
+            small: fonts.add_font(&[
+                FontSource::TtfData {
+                    data: &crate::fonts::clash_font::CLASH, // &crate::fonts::clash_font::CLASH,
+                    size_pixels: 50.,
+                    config: Some(fonts_config_small2), //None,
+                },
+            ]),
+            normal: fonts.add_font(&[
+                FontSource::TtfData {
+                    data: &crate::fonts::clash_font::CLASH, // &crate::fonts::clash_font::CLASH,
+                    size_pixels: 50.,
+                    config: Some(fonts_config_normal2),
+                }
+            ]),
+            big: fonts.add_font(&[
+                FontSource::TtfData {
+                    data: &crate::fonts::clash_font::CLASH, // &crate::fonts::clash_font::CLASH,
+                    size_pixels: 50.,
+                    config: Some(fonts_config_big2),
+                },
+            ]),
+        });
         FONTS_STORAGE = Some(FontIDs {
             small: fonts.add_font(&[
                 FontSource::TtfData {

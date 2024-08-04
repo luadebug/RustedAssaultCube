@@ -35,8 +35,7 @@ pub(crate) unsafe extern "cdecl" fn wallhack_hooked_func(reg: *mut Registers, _:
             asm! {
             "pushad",
             }
-            if IS_WALLHACK.load(SeqCst) {
-                if (*reg).get_arg(7) > 200 && (*reg).get_arg(7) < 10000 {
+            if IS_WALLHACK.load(SeqCst) && (*reg).get_arg(7) > 200 && (*reg).get_arg(7) < 10000 {
                     //println!("[ESP+0x1C] = {}", (*reg).get_arg(7));
 
                     /*GL_DEPTH_RANGE_FN.unwrap()(0.0f64, 0.0f64);*/
@@ -57,7 +56,6 @@ pub(crate) unsafe extern "cdecl" fn wallhack_hooked_func(reg: *mut Registers, _:
                                     GL_DISABLE_FN.unwrap()(0x0B57);
                                     GL_COLOR4F_FN.unwrap()(1.0f32, 1.0f32, 1.0f32, 1.0f32);*/
                                 }*/
-            }
             asm! {
             "popad
             mov esi, dword ptr ds : [esi + 0xA18]",
@@ -86,7 +84,7 @@ pub fn setup_wallhack() {
             gl_depth_func.unwrap() as usize
         );
 
-        GL_DEPTH_FUNC_FN = core::mem::transmute(gl_depth_func);
+        GL_DEPTH_FUNC_FN = core::mem::transmute::<Option<unsafe extern "system" fn() -> isize>, Option<unsafe extern "stdcall" fn(usize)>>(gl_depth_func);
 
         /*
 

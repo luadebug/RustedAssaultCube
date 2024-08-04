@@ -4,13 +4,11 @@ use crate::angle::Angle;
 use crate::entity::Entity;
 use crate::game::{set_brightness, set_brightness_toggle};
 use crate::getclosestentity::get_closest_entity;
-use crate::offsets::offsets::{LOCAL_PLAYER_OFFSET, PITCH_OFFSET, YAW_OFFSET};
+use crate::memorypatch::MemoryPatch;
+use crate::offsets::{LOCAL_PLAYER_OFFSET, PITCH_OFFSET, YAW_OFFSET};
 use crate::utils::{read_memory, write_memory};
 use crate::vars::game_vars::{LOCAL_PLAYER, SMOOTH};
 use crate::vars::handles::AC_CLIENT_EXE_HMODULE;
-use crate::vars::mem_patches::{
-    MAPHACK_MEMORY_PATCH, NO_RECOIL_MEMORY_PATCH, RADAR_MEMORY_PATCH, RAPID_FIRE_MEMORY_PATCH,
-};
 use crate::vars::ui_vars::IS_SMOOTH;
 use crate::vec_structures::Vec3;
 
@@ -48,27 +46,27 @@ pub unsafe fn toggle_infinite_ammo(toggle: &mut bool) {
     *toggle = !*toggle;
 }
 
-pub unsafe fn toggle_no_recoil(toggle: &mut bool) {
+pub unsafe fn toggle_no_recoil(toggle: &mut bool, mem_patch: &mut MemoryPatch) {
     *toggle = !*toggle;
     if *toggle {
-        NO_RECOIL_MEMORY_PATCH
+        mem_patch
             .patch_memory()
             .expect("[ui] Failed to patch memory no recoil");
     } else {
-        NO_RECOIL_MEMORY_PATCH
+        mem_patch
             .unpatch_memory()
             .expect("[ui] Failed to unpatch memory no recoil");
     }
 }
 
-pub unsafe fn toggle_rapid_fire(toggle: &mut bool) {
+pub unsafe fn toggle_rapid_fire(toggle: &mut bool, mem_patch: &mut MemoryPatch) {
     *toggle = !*toggle;
     if *toggle {
-        RAPID_FIRE_MEMORY_PATCH
+        mem_patch
             .patch_memory()
             .expect("[ui] Failed to patch memory rapid fire");
     } else {
-        RAPID_FIRE_MEMORY_PATCH
+        mem_patch
             .unpatch_memory()
             .expect("[ui] Failed to unpatch memory rapid fire");
     }
@@ -90,26 +88,25 @@ pub unsafe fn toggle_triggerbot(toggle: &mut bool) {
     *toggle = !*toggle;
 }
 
-pub unsafe fn toggle_maphack(toggle: &mut bool) {
-    unsafe {
-        *toggle = !*toggle;
-        if *toggle {
-            MAPHACK_MEMORY_PATCH
-                .patch_memory()
-                .expect("[ui] Failed to patch memory Maphack");
-            RADAR_MEMORY_PATCH
-                .patch_memory()
-                .expect("[ui] Failed to patch memory Radar");
-        } else {
-            MAPHACK_MEMORY_PATCH
-                .unpatch_memory()
-                .expect("[ui] Failed to unpatch memory Maphack");
-            RADAR_MEMORY_PATCH
-                .unpatch_memory()
-                .expect("[ui] Failed to unpatch memory Radar");
-        }
+pub unsafe fn toggle_maphack(toggle: &mut bool, mem_patch: &mut MemoryPatch, mem_patch2: &mut MemoryPatch) {
+    *toggle = !*toggle;
+    if *toggle {
+        mem_patch
+            .patch_memory()
+            .expect("[ui] Failed to patch memory Maphack");
+        mem_patch2
+            .patch_memory()
+            .expect("[ui] Failed to patch memory Radar");
+    } else {
+        mem_patch
+            .unpatch_memory()
+            .expect("[ui] Failed to unpatch memory Maphack");
+        mem_patch2
+            .unpatch_memory()
+            .expect("[ui] Failed to unpatch memory Radar");
     }
 }
+
 
 pub unsafe fn toggle_fullbright(toggle: &mut bool) {
     *toggle = !*toggle;
@@ -199,7 +196,7 @@ pub unsafe fn aimbot(toggle: &mut bool) {
             // Read yaw and pitch with error handling
             let (local_player_yaw, local_player_pitch) =
                 match (LOCAL_PLAYER.yaw(), LOCAL_PLAYER.pitch()) {
-                    (Ok(y), Ok(p)) => (y as f32, p as f32),
+                    (Ok(y), Ok(p)) => (y, p),
                     (Err(err), _) => {
                         println!("Error reading yaw: {}", err);
                         return;
@@ -223,8 +220,6 @@ pub unsafe fn aimbot(toggle: &mut bool) {
                     let new_pitch = local_player_pitch + (smooth.pitch / smooth_value);
                     update_view_angle(YAW_OFFSET, new_yaw);
                     update_view_angle(PITCH_OFFSET, new_pitch);
-                } else {
-                    return;
                 }
             } else {
                 update_view_angle(YAW_OFFSET, angle.yaw);

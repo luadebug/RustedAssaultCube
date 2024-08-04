@@ -208,8 +208,7 @@ impl StateRegistry {
         let value = self.states[index]
             .try_borrow()
             .ok()
-            .map(transpose_ref_opt)
-            .flatten()?;
+            .and_then(transpose_ref_opt)?;
 
         let value = Ref::map(value, |value| {
             value.value.downcast_ref::<T>().expect("to be type T")
@@ -227,8 +226,7 @@ impl StateRegistry {
         let value = self.states[index]
             .try_borrow_mut()
             .ok()
-            .map(transpose_ref_mut_opt)
-            .flatten()?;
+            .and_then(transpose_ref_mut_opt)?; // Use and_then instead of map + flatten
 
         let value = RefMut::map(value, |value| {
             value.value.downcast_mut::<T>().expect("to be type T")

@@ -5,7 +5,7 @@ use std::thread;
 use ilhook::x86::{CallbackOption, HookFlags, HookType, Hooker, Registers};
 
 use crate::entity::Entity;
-use crate::offsets::offsets::{
+use crate::offsets::{
     AMMO_CARBINE, AMMO_IN_MAGAZINE_CARBINE, AMMO_IN_MAGAZINE_PISTOL, AMMO_IN_MAGAZINE_RIFLE,
     AMMO_IN_MAGAZINE_SHOTGUN, AMMO_IN_MAGAZINE_SNIPER, AMMO_IN_MAGAZINE_SUBMACHINEGUN, AMMO_PISTOL,
     AMMO_RIFLE, AMMO_SHOTGUN, AMMO_SNIPER, AMMO_SUBMACHINEGUN, ARMOR_OFFSET_FROM_LOCAL_PLAYER,
@@ -27,11 +27,9 @@ pub(crate) unsafe extern "cdecl" fn get_local_player_health(reg: *mut Registers,
             if reg_val.ebx == 0 {
                 return;
             }
-            if LOCAL_PLAYER_FIELDS_ADDR == null_mut() {
+            if LOCAL_PLAYER_FIELDS_ADDR.is_null() ||
+                LOCAL_PLAYER_FIELDS_ADDR != reg_val.ebx as *mut usize  {
                 LOCAL_PLAYER_FIELDS_ADDR = reg_val.ebx as *mut usize;
-                if LOCAL_PLAYER_FIELDS_ADDR == null_mut() {
-                    return;
-                }
             }
 
             let mut local_player = match Entity::from_addr(LOCAL_PLAYER_FIELDS_ADDR as usize) {
@@ -103,7 +101,7 @@ pub fn setup_invul() {
 
         let get_local_player_health_aob = find_pattern(
             "ac_client.exe",
-            &*pattern_mask.aob_pattern,
+            &pattern_mask.aob_pattern,
             &pattern_mask.mask_to_string(),
         );
 

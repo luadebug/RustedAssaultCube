@@ -50,5 +50,5 @@ pub extern "system" fn MainThread(lpReserved: *mut c_void) -> u32 {
         }
         entrypoint().expect("[MainThread] Failed to call esp_entrypoint()");
     }
-    return 1;
+    1
 }

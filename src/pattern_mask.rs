@@ -15,10 +15,10 @@ impl PatternMask {
         };
 
         d.string_byte_array = search
-            .trim()
             .split_whitespace()
             .map(|s| s.to_string())
             .collect();
+
         let length = d.string_byte_array.len();
         d.aob_pattern = vec![0; length];
         d.mask = vec![0; length];
@@ -27,16 +27,12 @@ impl PatternMask {
             if ba == "??" || (ba.len() == 1 && ba == "?") {
                 d.mask[i] = 0x00;
                 d.aob_pattern[i] = 0x00; // Set aob_pattern for wildcards as well
-            } else if ba.chars().next().unwrap().is_ascii_alphanumeric()
-                && ba.chars().nth(1) == Some('?')
-            {
+            } else if ba.starts_with(|arg0: char| char::is_ascii_alphanumeric(&arg0)) && ba.chars().nth(1) == Some('?') {
                 d.mask[i] = 0xF0;
                 let hex_value =
                     u8::from_str_radix(&format!("{}0", ba.chars().next().unwrap()), 16).unwrap();
                 d.aob_pattern[i] = hex_value;
-            } else if ba.chars().next() == Some('?')
-                && ba.chars().nth(1).unwrap().is_ascii_alphanumeric()
-            {
+            } else if ba.starts_with('?') && ba.chars().nth(1).expect("Failed to extract second character").is_ascii_alphanumeric() {
                 d.mask[i] = 0x0F;
                 let hex_value =
                     u8::from_str_radix(&format!("0{}", ba.chars().nth(1).unwrap()), 16).unwrap();
@@ -44,8 +40,8 @@ impl PatternMask {
             } else {
                 d.mask[i] = 0xFF;
                 // Correctly convert and apply mask to aob_pattern
-                let hex_value = if ba.starts_with("0x") {
-                    u8::from_str_radix(&ba[2..], 16).unwrap_or(0x00)
+                let hex_value = if let Some(stripped) = ba.strip_prefix("0x") {
+                    u8::from_str_radix(stripped, 16).unwrap_or(0x00)
                 } else {
                     u8::from_str_radix(ba, 16).unwrap_or(0x00)
                 };

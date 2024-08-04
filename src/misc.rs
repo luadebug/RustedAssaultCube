@@ -8,6 +8,7 @@ use crate::vars::mem_patches::{
 };
 use crate::wallhack_hook::setup_wallhack;
 use std::ffi::c_void;
+use std::sync::Mutex;
 use std::thread;
 
 pub unsafe fn init_mem_patches() {
@@ -18,7 +19,7 @@ pub unsafe fn init_mem_patches() {
 
         let no_recoil_aob = find_pattern(
             "ac_client.exe",
-            &*pattern_mask.aob_pattern,
+            &pattern_mask.aob_pattern,
             &pattern_mask.mask_to_string(),
         );
         let mut no_recoil_res: usize = 0;
@@ -31,13 +32,13 @@ pub unsafe fn init_mem_patches() {
 
         //83 EC 28 -> C2 08 00
         unsafe {
-            NO_RECOIL_MEMORY_PATCH = MemoryPatch::new(
+            NO_RECOIL_MEMORY_PATCH = Mutex::new(MemoryPatch::new(
                 &[0xC2, 0x08, 0x00], // return 0008
                 0x03,
                 no_recoil_res as *mut c_void,
                 3usize,
             )
-            .expect("Failed to patch No Recoil");
+            .expect("Failed to patch No Recoil"));
         }
     });
 
@@ -48,7 +49,7 @@ pub unsafe fn init_mem_patches() {
 
         let rapid_fire_aob = find_pattern(
             "ac_client.exe",
-            &*pattern_mask.aob_pattern,
+            &pattern_mask.aob_pattern,
             &pattern_mask.mask_to_string(),
         );
         let mut rapid_fire_res: usize = 0;
@@ -61,13 +62,13 @@ pub unsafe fn init_mem_patches() {
 
         //89 08 -> 90 90
         unsafe {
-            RAPID_FIRE_MEMORY_PATCH = MemoryPatch::new(
+            RAPID_FIRE_MEMORY_PATCH = Mutex::new(MemoryPatch::new(
                 &[0x90, 0x90], // nop nop
                 0x02,
                 rapid_fire_res as *mut c_void,
                 2usize,
             )
-            .expect("Failed to patch Rapid Fire");
+            .expect("Failed to patch Rapid Fire"));
         }
     });
     thread::spawn(|| {
@@ -77,7 +78,7 @@ pub unsafe fn init_mem_patches() {
 
         let maphack_aob = find_pattern(
             "ac_client.exe",
-            &*pattern_mask.aob_pattern,
+            &pattern_mask.aob_pattern,
             &pattern_mask.mask_to_string(),
         );
 
@@ -89,13 +90,13 @@ pub unsafe fn init_mem_patches() {
             println!("[esp] maphack pattern not found");
         }
         unsafe {
-            MAPHACK_MEMORY_PATCH = MemoryPatch::new(
+            MAPHACK_MEMORY_PATCH = Mutex::new(MemoryPatch::new(
                 &[0xE9, 0xCD, 0x00, 0x00, 0x00, 0x90],
                 0x06,
                 map_res as *mut c_void,
                 6usize,
             )
-            .expect("Failed to patch map");
+            .expect("Failed to patch map"));
         }
 
         let pattern_mask2 = PatternMask::aob_to_pattern_mask("0F 8D ? ? ? ? 85 C9 74 68");
@@ -104,7 +105,7 @@ pub unsafe fn init_mem_patches() {
 
         let radarhack_aob = find_pattern(
             "ac_client.exe",
-            &*pattern_mask2.aob_pattern,
+            &pattern_mask2.aob_pattern,
             &pattern_mask2.mask_to_string(),
         );
 
@@ -116,13 +117,13 @@ pub unsafe fn init_mem_patches() {
             println!("[esp] radarhack pattern not found");
         }
         unsafe {
-            RADAR_MEMORY_PATCH = MemoryPatch::new(
+            RADAR_MEMORY_PATCH = Mutex::new(MemoryPatch::new(
                 &[0xE9, 0xD6, 0x00, 0x00, 0x00, 0x90],
                 0x06,
                 radar_res as *mut c_void,
                 6usize,
             )
-            .expect("Failed to patch radar");
+            .expect("Failed to patch radar"));
         }
     });
     setup_trigger_bot();

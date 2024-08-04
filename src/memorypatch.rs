@@ -87,8 +87,8 @@ impl MemoryPatch {
         unsafe {
             ptr::copy_nonoverlapping(buffer_to_patch.as_ptr(), patch_instructions, size_buffer);
             ptr::copy_nonoverlapping(location as *const u8, original_instructions, size_buffer);
-            for i in 0..size_buffer {
-                if mask[i] == b'?' {
+            for (i, &m) in mask.iter().enumerate().take(size_buffer) {
+                if m == b'?' {
                     *patch_instructions.add(i) = *original_instructions.add(i);
                 }
             }

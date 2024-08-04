@@ -10,7 +10,7 @@ unsafe fn esp_cleanup(
     red_brush: HBRUSH,
     blue_brush: HBRUSH,
     background_brush: HBRUSH,
-) -> Result<(), Box<String>> {
+) -> Result<(), String> {
     unsafe {
         // Attempt to delete the memory bitmap and log the result
         if DeleteObject(mem_bitmap) == TRUE {

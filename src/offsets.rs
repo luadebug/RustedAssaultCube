@@ -1,4 +1,4 @@
-pub mod offsets {
+
     pub const LOCAL_PLAYER_OFFSET: usize = 0x18AC00;
     pub const HEAD_X_FROM_LOCAL_PLAYER: usize = 0x4;
     pub const HEAD_Y_FROM_LOCAL_PLAYER: usize = 0x8;
@@ -46,4 +46,3 @@ pub mod offsets {
 
     pub const BRIGHTNESS: usize = 0x182D40;
     pub const SET_BRIGHTNESS: usize = 0xBA180;
-}

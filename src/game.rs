@@ -6,7 +6,7 @@ use windows::Win32::System::Memory::{
     VirtualProtect, PAGE_EXECUTE_READWRITE, PAGE_PROTECTION_FLAGS,
 };
 
-use crate::offsets::offsets::{BRIGHTNESS, SET_BRIGHTNESS};
+use crate::offsets::{BRIGHTNESS, SET_BRIGHTNESS};
 use crate::utils::write_memory;
 
 pub unsafe fn c_brightness() -> *mut usize {
@@ -67,7 +67,7 @@ pub unsafe fn set_brightness_toggle(is_on: bool) {
         static mut SET_BRIGHTNESS_FUNCTION: Option<unsafe extern "stdcall" fn() -> ()> = None;
 
         // Get the address somewhere in your code
-        SET_BRIGHTNESS_FUNCTION = core::mem::transmute(set_brightness_func);
+        SET_BRIGHTNESS_FUNCTION = core::mem::transmute::<*mut usize, Option<unsafe extern "stdcall" fn()>>(set_brightness_func);
 
         // Then call it somewhere else
         SET_BRIGHTNESS_FUNCTION.unwrap()();

@@ -216,8 +216,7 @@ pub unsafe fn write_memory<T>(address: usize, value: T) -> Result<(), String> {
         ptr::write_unaligned((address as *mut T).cast(), value);
 
         // Restore the original memory protection if it was changed
-        if !is_writable {
-            if VirtualProtect(
+        if !is_writable && VirtualProtect(
                 mbi.BaseAddress,
                 mbi.RegionSize,
                 old_protect,
@@ -230,7 +229,7 @@ pub unsafe fn write_memory<T>(address: usize, value: T) -> Result<(), String> {
                     address
                 ));
             }
-        }
+
 
         Ok(())
     }
@@ -298,8 +297,7 @@ pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
         let value = ptr::read_unaligned((address as *const T).cast());
 
         // Restore the original memory protection if it was changed
-        if !is_readable {
-            if VirtualProtect(
+        if !is_readable && VirtualProtect(
                 mbi.BaseAddress,
                 mbi.RegionSize,
                 old_protect,
@@ -312,7 +310,7 @@ pub unsafe fn read_memory<T>(address: usize) -> Result<T, String> {
                     address
                 ));
             }
-        }
+
 
         Ok(value)
     }
@@ -384,8 +382,7 @@ pub unsafe fn read_vector<T>(address: usize, len: usize) -> Result<Vec<T>, Strin
         }
 
         // Restore the original memory protection if it was changed
-        if !is_readable {
-            if VirtualProtect(
+        if !is_readable && VirtualProtect(
                 mbi.BaseAddress,
                 mbi.RegionSize,
                 old_protect,
@@ -398,7 +395,7 @@ pub unsafe fn read_vector<T>(address: usize, len: usize) -> Result<Vec<T>, Strin
                     address
                 ));
             }
-        }
+
 
         Ok(values)
     }
@@ -481,12 +478,14 @@ pub fn close_console() {
         FreeConsole().expect("Failed to free console");
     }
 }
+
+
 #[allow(unused)]
 pub fn run_cmd(command: &str) -> String {
     let mut result = String::new();
 
     let mut child = Command::new("cmd")
-        .args(&["/C", command])
+        .args(["/C", command])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .creation_flags(CREATE_NO_WINDOW.0)

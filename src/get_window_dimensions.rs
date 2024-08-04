@@ -3,7 +3,7 @@ use windows::Win32::UI::WindowsAndMessaging::{GetWindowInfo, WINDOWINFO};
 
 use crate::window_dimensions::WindowDimensions;
 
-pub(crate) fn get_window_dimensions(window: HWND) -> Result<WindowDimensions, Box<String>> {
+pub(crate) fn get_window_dimensions(window: HWND) -> Result<WindowDimensions, String> {
     let mut window_info = WINDOWINFO::default();
     window_info.cbSize = std::mem::size_of_val(&window_info) as u32;
 
@@ -13,10 +13,10 @@ pub(crate) fn get_window_dimensions(window: HWND) -> Result<WindowDimensions, Bo
                 width: window_info.rcClient.right - window_info.rcClient.left,
                 height: window_info.rcClient.bottom - window_info.rcClient.top,
             }),
-            Err(_) => Err(Box::new(format!(
+            Err(_) => Err(format!(
                 "Error getting screen dimensions. last_error={:?}",
                 GetLastError()
-            ))),
+            )),
         }
     }
 }

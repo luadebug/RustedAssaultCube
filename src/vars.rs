@@ -12,12 +12,13 @@ pub mod hooks {
         Lazy::new(|| Mutex::new(None));
 }
 pub mod mem_patches {
+    use std::sync::Mutex;
     use crate::memorypatch::MemoryPatch;
 
-    pub static mut NO_RECOIL_MEMORY_PATCH: MemoryPatch = MemoryPatch::new_empty();
-    pub static mut RAPID_FIRE_MEMORY_PATCH: MemoryPatch = MemoryPatch::new_empty();
-    pub static mut MAPHACK_MEMORY_PATCH: MemoryPatch = MemoryPatch::new_empty();
-    pub static mut RADAR_MEMORY_PATCH: MemoryPatch = MemoryPatch::new_empty();
+    pub static mut NO_RECOIL_MEMORY_PATCH: Mutex<MemoryPatch> = Mutex::new(MemoryPatch::new_empty());
+    pub static mut RAPID_FIRE_MEMORY_PATCH: Mutex<MemoryPatch> = Mutex::new(MemoryPatch::new_empty());
+    pub static mut MAPHACK_MEMORY_PATCH: Mutex<MemoryPatch> = Mutex::new(MemoryPatch::new_empty());
+    pub static mut RADAR_MEMORY_PATCH: Mutex<MemoryPatch> = Mutex::new(MemoryPatch::new_empty());
 }
 pub mod ui_vars {
     use std::sync::atomic::AtomicBool;
