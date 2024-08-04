@@ -3,7 +3,7 @@
 # Game's backend is OPENGL
 # DLL uses SimHei.ttf to render chinese glyphs, make sure you have installed SimHei.ttf into your Windows/Fonts folder.
 # SimHei.ttf download link: https://huggingface.co/internlm/internlm-xcomposer2d5-7b/resolve/main/SimHei.ttf
-# DLL uses GDI (For drawing objects for extrasensory perception) and HUDHOOK (IMGUI for menu)
+# DLL uses HUDHOOK (IMGUI for menu and for drawing objects for extrasensory perception)
 # This DLL does not use OTF fonts yet, but OTF fonts support is enabled, to use it you would need to install freetype using vcpkg
 # To install freetype you need to install vcpkg and install freetype, using command 
 # vcpkg install freetype --triplet=x86-windows-static-md && vcpkg install freetype --triplet=x86-windows-static && vcpkg install freetype --triplet=x86-windows
