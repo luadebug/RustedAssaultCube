@@ -2,7 +2,7 @@ cargo-features = ["edition2024", "profile-rustflags"]
 
 [package]
 name = "rusted-assault-cube"
-version = "2.3.0"
+version = "2.3.1"
 edition = "2024"
 authors = ["luadebug Lin Evelynn lin@sz.cn.eu.org"]
 publish = false
@@ -21,7 +21,7 @@ ilhook = "2.1.1"
 serde = { version = "1.0.204", features = ["derive"] }
 log = "0.4.22"
 anyhow = "1.0.86"
-serde_yml = "0.0.11"
+serde_yml = "0.0.12"
 gnal_tsur = "0.1.0"
 pkg-config = "0.3.30"
 imgui-sys = { version = "0.12.0", features = ["use-vcpkg"] }

@@ -1,13 +1,15 @@
+use std::ffi::{c_char, CString};
 use std::fs::File;
 use std::io::Read;
 use std::mem;
 use std::ops::{Deref, DerefMut};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering::SeqCst;
 
 use gnal_tsur::gnal_tsur;
 use hudhook::{imgui, MessageFilter, RenderContext};
-use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, Io};
+use hudhook::imgui::{Context, FontConfig, FontGlyphRanges, FontId, FontSource, ImColor32, Io, sys};
+use imgui_sys::{igGetFont, ImColor, ImVec2, ImVec4};
 use once_cell::sync::Lazy;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_INSERT;
 
@@ -35,7 +37,7 @@ use crate::settings::{AppSettings, load_app_settings, save_app_settings};
 use crate::style::{
     set_style_minty_light, set_style_minty_mint, set_style_minty_red, set_style_unicore,
 };
-use crate::utils::{read_memory, read_view_matrix, run_cmd};
+use crate::utils::{f32_to_u8, float_array_to_u32, read_memory, read_view_matrix, run_cmd};
 use crate::vars::game_vars::{
     ENTITY_LIST_PTR, FOV, LOCAL_PLAYER, NUM_PLAYERS_IN_MATCH, SMOOTH, TRIGGER_DELAY, VIEW_MATRIX,
 };
@@ -575,7 +577,7 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                             if ui.slider(
                                 "Name text size",
                                 10.0f32,
-                                60.0f32,
+                                120.0f32,
                                 &mut SETTINGS.name_text_thickness,
                             ) {
                                 println!(
@@ -583,7 +585,7 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                                     SETTINGS.deref().name_text_thickness
                                 )
                             }
-                            if ui.color_edit3(
+                            if ui.color_edit4(
                                 "Ally name text color",
                                 &mut SETTINGS.ally_name_text_color,
                             ) {
@@ -592,7 +594,7 @@ pub unsafe fn on_frame(ui: &imgui::Ui, app_settings: &mut AppSettings) {
                                     SETTINGS.ally_name_text_color
                                 );
                             }
-                            if ui.color_edit3(
+                            if ui.color_edit4(
                                 "Enemy name text color",
                                 &mut SETTINGS.enemy_name_text_color,
                             ) {
@@ -1115,17 +1117,42 @@ impl hudhook::ImguiRenderLoop for RenderLoop {
                                 })
                                 .unwrap();
 
-                            let custom_font = ui.push_font(font_id);
-                            background_draw_list.add_text(
-                                [espleft, esptop - 40.0f32],
-                                if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
-                                    SETTINGS.deref().ally_name_text_color
-                                } else {
-                                    SETTINGS.deref().enemy_name_text_color
-                                },
-                                entity.name().unwrap(),
-                            );
-                            custom_font.pop();
+
+                            unsafe {
+                                let custom_font = ui.push_font(font_id);
+                                // Get the entity name and create a CString
+                                let text = entity.name().unwrap();
+                                let c_text = CString::new(text).unwrap();  // Convert to C-compatible string
+
+                                let font_handle = igGetFont();
+
+                                // Get the pointer to the C string
+                                let start: *const c_char = c_text.as_ptr();  // Use CString to ensure null termination
+
+                                // The end pointer is not necessary when using CString, as you can pass the string slice
+                                let end: *const c_char = start.add(c_text.as_bytes().len());
+
+                                // Call the function
+                                sys::ImDrawList_AddText_FontPtr(
+                                    sys::igGetBackgroundDrawList_Nil(),
+                                    font_handle,
+                                    SETTINGS.deref().name_text_thickness,
+                                    ImVec2::from([espleft, esptop - 80.0f32]),
+                                    if LOCAL_PLAYER.team().unwrap() == entity.team().unwrap() {
+                                        ImColor32::from_rgba(f32_to_u8(SETTINGS.deref().ally_name_text_color[0]), f32_to_u8(SETTINGS.deref().ally_name_text_color[1]), f32_to_u8(SETTINGS.deref().ally_name_text_color[2]), f32_to_u8(SETTINGS.deref().ally_name_text_color[3])).to_bits()
+                                    } else {
+                                        ImColor32::from_rgba(f32_to_u8(SETTINGS.deref().enemy_name_text_color[0]), f32_to_u8(SETTINGS.deref().enemy_name_text_color[1]), f32_to_u8(SETTINGS.deref().enemy_name_text_color[2]), f32_to_u8(SETTINGS.deref().enemy_name_text_color[3])).to_bits()
+                                    },
+                                    start,
+                                    end,
+                                    0.0f32,
+                                    std::ptr::null()  // Assuming you don't want to specify a clipping rectangle
+                                );
+                                custom_font.pop();
+                            }
+
+
+
                         }
 
                     if IS_AIMBOT.load(SeqCst) && IS_DRAW_FOV.load(SeqCst) {
@@ -1252,15 +1279,46 @@ unsafe fn init_fonts(_ctx: &mut Context) {
 
         // Get Windows Fonts directory
         let fonts_dir = run_cmd("echo %windir%\\Fonts").trim().to_string();
+        let fonts_pth = Path::new(&fonts_dir);
+        // Find the "Windows" or "WINDOWS" component in the path and replace it with "Windows"
+        let mut components: Vec<String> = fonts_pth.components().map(|c| c.as_os_str().to_str().unwrap().to_string()).collect();
+        for (i, c) in components.iter_mut().enumerate() {
+            if c.to_lowercase() == "windows" {
+                *c = "Windows".to_string();
+            }
+        }
 
-        let cn_font_file_path = format!("{}\\SimHei.ttf", fonts_dir);
+        // Rebuild the path with the modified components
+        let joined_path = components.join("\\");
+        let new_fonts_pth = Path::new(&joined_path);
 
-        let mut cn_font_file = File::open(&cn_font_file_path).unwrap();
+        let cn_font_file_path = format!("{}\\SimHei.ttf", new_fonts_pth.display());
+        let cn_font_file_pth = Path::new(&cn_font_file_path);
+
+        let fonts_dir2 = run_cmd("echo %LOCALAPPDATA%\\Microsoft\\Windows\\Fonts").trim().to_string();
+        let fonts_pth2 = Path::new(&fonts_dir2);
+
+        let cn_font_file_path2 = format!("{}\\SimHei.ttf", fonts_pth2.display());
+        let cn_font_file_pth2 = Path::new(&cn_font_file_path2);
+        //println!("cn_font_file_path = {}", cn_font_file_path);
+
         let mut cn_font_file_bytes = Vec::new();
-        cn_font_file.read_to_end(&mut cn_font_file_bytes).unwrap();
+        if cn_font_file_pth.exists()
+        {
+            println!("Going to read system fonts path from = {}", cn_font_file_path);
+            let mut cn_font_file = File::open(&cn_font_file_path).unwrap();
+            cn_font_file.read_to_end(&mut cn_font_file_bytes).unwrap();
+        }
+        else
+        {
+            println!("Going to read user fonts path from = {}", cn_font_file_path2);
+            let mut cn_font_file = File::open(&cn_font_file_path2).unwrap();
+            cn_font_file.read_to_end(&mut cn_font_file_bytes).unwrap();
+        }
 
-        let hebrew_font_file_path = format!("{}\\arial.ttf", fonts_dir);
 
+        let hebrew_font_file_path = format!("{}\\arial.ttf", new_fonts_pth.display());
+        println!("hebrew_font_file_path = {}", hebrew_font_file_path);
         let mut hebrew_font_file = File::open(&hebrew_font_file_path).unwrap();
         let mut hebrew_font_file_bytes = Vec::new();
         hebrew_font_file

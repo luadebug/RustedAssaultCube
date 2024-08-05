@@ -556,3 +556,26 @@ pub unsafe fn setup_tracing() {
         .with(EnvFilter::from_default_env())
         .init();
 }
+pub fn float_array_to_u32(arr: [f32; 4]) -> u32 {
+    assert!(arr.len() == 4); // Ensure the array has exactly 4 items
+
+    // Initialize a variable to hold the combined u32 value
+    let mut combined: u32 = 0;
+
+    // Iterate through the array, clamp to 0-255, and combine into u32
+    for (i, &value) in arr.iter().enumerate() {
+        // Clamp the value to 0-255 and convert to u8
+        let byte_value = value.clamp(0.0, 255.0) as u8;
+
+        // Combine the byte into the combined u32
+        combined |= (byte_value as u32) << (8 * (3 - i)); // Shift left to the correct position
+    }
+
+    combined
+}
+
+pub fn f32_to_u8(value: f32) -> u8 {
+    // Scale and clamp the value to the range [0, 255]
+    let scaled = (value * 255.0).clamp(0.0, 255.0);
+    scaled as u8
+}
